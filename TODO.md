@@ -37,13 +37,19 @@ organizes them into **Projects**, and streams them in **real-time**.
 - [x] Data model (see below) — UUID PKs · single-user v1 (no auth yet)
 - [x] Scaffold C# Web API + EF Core entities + DbContext + InitialCreate migration
 - [x] docker-compose (API + Postgres), auto-migrate on startup — verified working
-- [ ] `POST /ingest/:projectSlug/:endpointSlug` — accept any JSON payload
-- [ ] Secret-token validation per endpoint
-- [ ] Persist events to Postgres
-- [ ] Live-tail stream (SignalR / Reverb / SSE)
-- [ ] Dashboard: project list → event log view
-- [ ] "Copy webhook URL" button per endpoint
-- [ ] Retention policy (default 30-day TTL)
+- [x] `POST /ingest/:projectSlug/:endpointSlug` — accepts any JSON payload (non-JSON wrapped)
+- [x] Secret-token validation per endpoint (header or query)
+- [x] Persist events to Postgres (jsonb body/headers, parsed status)
+- [x] Projects/Endpoints/Events REST API + status parser
+- [x] Dashboard: project list → project detail with event log view
+- [x] "Copy webhook URL" + "Copy secret" button per endpoint
+- [~] Live-tail stream — **polling (3s) for MVP**; SignalR upgrade pending ("pipes")
+- [ ] Retention policy (default 30-day TTL) — column stamped, cleanup job pending
+
+### MVP status: ✅ end-to-end verified
+Create project → add endpoint → POST webhook (200 valid / 401 bad secret) →
+event stored with parsed status → live feed shows it with body/headers + status badge.
+Deferred by design: SignalR real-time push, external service wiring, retention job, auth.
 
 ---
 

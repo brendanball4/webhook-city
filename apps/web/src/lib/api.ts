@@ -57,6 +57,10 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     throw new Error(`API ${res.status}: ${await res.text()}`);
   }
+  // 204 No Content (e.g. DELETE) has no body to parse.
+  if (res.status === 204) {
+    return undefined as T;
+  }
   return res.json() as Promise<T>;
 }
 
@@ -77,6 +81,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ source, kind }),
     }),
+
+  deleteProject: (slug: string) =>
+    http<void>(`/api/projects/${slug}`, { method: "DELETE" }),
+
+  deleteEndpoint: (projectSlug: string, endpointSlug: string) =>
+    http<void>(
+      `/api/projects/${projectSlug}/endpoints/${endpointSlug}`,
+      { method: "DELETE" },
+    ),
 
   listEvents: (projectSlug: string, take = 50, kind?: EventKind) =>
     http<WebhookEvent[]>(

@@ -40,6 +40,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors(FrontendCors);
 
+// Enable request-body buffering before MVC so the ingest endpoint can read the
+// raw payload even after form-binding has consumed the stream.
+app.Use(async (context, next) =>
+{
+    context.Request.EnableBuffering();
+    await next();
+});
+
 app.UseAuthorization();
 
 app.MapControllers();

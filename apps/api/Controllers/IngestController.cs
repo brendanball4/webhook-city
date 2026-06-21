@@ -71,12 +71,21 @@ public class IngestController : ControllerBase
 
     private async Task<string> ReadBodyAsync()
     {
+        // Buffering is enabled by middleware so the body is always rewindable,
+        // even when [ApiController] form-binding has already read the stream.
         Request.EnableBuffering();
+        if (Request.Body.CanSeek)
+            Request.Body.Position = 0;
+
         using var reader = new StreamReader(
             Request.Body, Encoding.UTF8, leaveOpen: true);
-        var buffer = new char[MaxBodyBytes];
-        var read = await reader.ReadAsync(buffer, 0, buffer.Length);
-        return new string(buffer, 0, read);
+        var raw = await reader.ReadToEndAsync();
+
+        if (Request.Body.CanSeek)
+            Request.Body.Position = 0;
+
+        // Guard against oversized payloads.
+        return raw.Length > MaxBodyBytes ? raw[..(int)MaxBodyBytes] : raw;
     }
 
     private static JsonDocument? TryParseJson(string raw)

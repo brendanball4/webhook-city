@@ -49,14 +49,22 @@ public class EndpointsController : ControllerBase
         if (request.Kind is { } k && !Enum.IsDefined(k))
             return BadRequest("Invalid kind.");
 
-        // A single-capability project forces the kind; a "Both" project lets the
-        // caller choose (defaulting to Webhook).
-        var kind = project.Capability switch
+        // Any project can add either kind at any time. The caller chooses; if
+        // omitted, default from the project's current capability.
+        var kind = request.Kind
+            ?? (project.Capability == ProjectCapability.Logs
+                ? EventKind.Log
+                : EventKind.Webhook);
+
+        // Adding the "other" kind grows the project to support both.
+        var requiredCapability = kind == EventKind.Webhook
+            ? ProjectCapability.Webhooks
+            : ProjectCapability.Logs;
+        if (project.Capability != ProjectCapability.Both &&
+            project.Capability != requiredCapability)
         {
-            ProjectCapability.Webhooks => EventKind.Webhook,
-            ProjectCapability.Logs => EventKind.Log,
-            _ => request.Kind ?? EventKind.Webhook,
-        };
+            project.Capability = ProjectCapability.Both;
+        }
 
         var baseSlug = string.IsNullOrWhiteSpace(request.Slug)
             ? SlugGenerator.Slugify(request.Source)

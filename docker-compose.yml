@@ -29,5 +29,17 @@ services:
     ports:
       - "5000:8080"
 
+  web:
+    build:
+      context: ./apps/web
+      args:
+        # Baked into the client bundle; the browser reaches the API on the host port.
+        NEXT_PUBLIC_API_URL: "http://localhost:5000"
+    container_name: webhookcity-web
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
 volumes:
   pgdata:

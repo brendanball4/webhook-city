@@ -38,6 +38,10 @@ public class WebhookCityDbContext : DbContext
             entity.HasIndex(e => e.ProjectId);
             entity.HasIndex(e => new { e.ProjectId, e.Slug }).IsUnique();
 
+            entity.Property(e => e.Kind)
+                .HasConversion<string>()
+                .IsRequired();
+
             entity.HasOne(e => e.Project)
                 .WithMany(p => p.Endpoints)
                 .HasForeignKey(e => e.ProjectId)
@@ -50,6 +54,13 @@ public class WebhookCityDbContext : DbContext
 
             // Hot path: list a project's events newest-first.
             entity.HasIndex(e => new { e.ProjectId, e.ReceivedAt });
+
+            // Filtering the feed by kind (webhooks vs logs).
+            entity.HasIndex(e => new { e.ProjectId, e.Kind, e.ReceivedAt });
+
+            entity.Property(e => e.Kind)
+                .HasConversion<string>()
+                .IsRequired();
 
             // Drives the retention cleanup job.
             entity.HasIndex(e => e.RetentionExpiresAt);

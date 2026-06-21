@@ -16,6 +16,9 @@ public class Endpoint
     /// <summary>Origin service, e.g. netlify | circleci | github | custom.</summary>
     public required string Source { get; set; }
 
+    /// <summary>Whether this endpoint receives webhooks or piped logs.</summary>
+    public EventKind Kind { get; set; } = EventKind.Webhook;
+
     /// <summary>Shared secret used to validate inbound POSTs.</summary>
     public required string SecretToken { get; set; }
 

@@ -16,10 +16,12 @@ export function EndpointsPanel({
   projectSlug,
   initial,
   capability,
+  onChange,
 }: {
   projectSlug: string;
   initial: Endpoint[];
   capability: ProjectCapability;
+  onChange?: () => void;
 }) {
   const [endpoints, setEndpoints] = useState<Endpoint[]>(initial);
   const [source, setSource] = useState("netlify");
@@ -28,14 +30,13 @@ export function EndpointsPanel({
   );
   const [adding, setAdding] = useState(false);
 
-  // Only a "Both" project lets you choose per-endpoint; otherwise it's fixed.
-  const canChooseKind = capability === "Both";
-
   async function add() {
     setAdding(true);
     try {
       const ep = await api.createEndpoint(projectSlug, source, kind);
       setEndpoints((prev) => [...prev, ep]);
+      // Adding a new kind may grow the project's capability — refresh the page.
+      onChange?.();
     } finally {
       setAdding(false);
     }
@@ -46,17 +47,15 @@ export function EndpointsPanel({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h2 className="font-medium">Endpoints</h2>
         <div className="flex gap-2">
-          {canChooseKind && (
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value as EventKind)}
-              className="rounded-md border border-border bg-surface-2 px-2 py-1 text-sm"
-              title="Endpoint kind"
-            >
-              <option value="Webhook">🪝 Webhook</option>
-              <option value="Log">📜 Log</option>
-            </select>
-          )}
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as EventKind)}
+            className="rounded-md border border-border bg-surface-2 px-2 py-1 text-sm"
+            title="Endpoint kind"
+          >
+            <option value="Webhook">🪝 Webhook</option>
+            <option value="Log">📜 Log</option>
+          </select>
           <select
             value={source}
             onChange={(e) => setSource(e.target.value)}

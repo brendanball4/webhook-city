@@ -19,6 +19,7 @@ public static class Mapping
         p.Id,
         p.Name,
         p.Slug,
+        p.Capability,
         p.CreatedAt,
         p.Endpoints
             .OrderBy(e => e.CreatedAt)

@@ -21,7 +21,7 @@ public class ProjectsController : ControllerBase
         var projects = await _db.Projects
             .OrderByDescending(p => p.CreatedAt)
             .Select(p => new ProjectResponse(
-                p.Id, p.Name, p.Slug, p.CreatedAt, p.Endpoints.Count))
+                p.Id, p.Name, p.Slug, p.Capability, p.CreatedAt, p.Endpoints.Count))
             .ToListAsync();
 
         return Ok(projects);
@@ -46,6 +46,9 @@ public class ProjectsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest("Name is required.");
 
+        if (!Enum.IsDefined(request.Capability))
+            return BadRequest("Invalid capability.");
+
         var baseSlug = SlugGenerator.Slugify(request.Name);
         var slug = baseSlug;
         var suffix = 1;
@@ -57,6 +60,7 @@ public class ProjectsController : ControllerBase
             Id = Guid.NewGuid(),
             Name = request.Name.Trim(),
             Slug = slug,
+            Capability = request.Capability,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
@@ -64,7 +68,7 @@ public class ProjectsController : ControllerBase
         await _db.SaveChangesAsync();
 
         var response = new ProjectResponse(
-            project.Id, project.Name, project.Slug, project.CreatedAt, 0);
+            project.Id, project.Name, project.Slug, project.Capability, project.CreatedAt, 0);
 
         return CreatedAtAction(nameof(Get), new { slug = project.Slug }, response);
     }

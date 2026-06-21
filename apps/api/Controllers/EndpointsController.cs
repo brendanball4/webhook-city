@@ -46,6 +46,18 @@ public class EndpointsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Source))
             return BadRequest("Source is required.");
 
+        if (request.Kind is { } k && !Enum.IsDefined(k))
+            return BadRequest("Invalid kind.");
+
+        // A single-capability project forces the kind; a "Both" project lets the
+        // caller choose (defaulting to Webhook).
+        var kind = project.Capability switch
+        {
+            ProjectCapability.Webhooks => EventKind.Webhook,
+            ProjectCapability.Logs => EventKind.Log,
+            _ => request.Kind ?? EventKind.Webhook,
+        };
+
         var baseSlug = string.IsNullOrWhiteSpace(request.Slug)
             ? SlugGenerator.Slugify(request.Source)
             : SlugGenerator.Slugify(request.Slug);
@@ -62,6 +74,7 @@ public class EndpointsController : ControllerBase
             Project = project,
             Slug = slug,
             Source = request.Source.Trim().ToLowerInvariant(),
+            Kind = kind,
             SecretToken = SlugGenerator.RandomToken(32),
             CreatedAt = DateTimeOffset.UtcNow,
         };

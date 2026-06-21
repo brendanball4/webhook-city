@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { type WebhookEvent } from "@/lib/api";
 import { StatusBadge } from "./StatusBadge";
+import { KindBadge } from "./KindBadge";
 
 export function EventRow({ event }: { event: WebhookEvent }) {
   const [open, setOpen] = useState(false);
@@ -18,6 +19,7 @@ export function EventRow({ event }: { event: WebhookEvent }) {
         <span className="text-xs font-mono text-muted w-16 shrink-0">
           {event.method}
         </span>
+        <KindBadge kind={event.kind} />
         <span className="font-medium text-sm flex-1 truncate">{event.source}</span>
         <StatusBadge status={event.status} />
         <span className="text-muted text-xs">{open ? "▲" : "▼"}</span>

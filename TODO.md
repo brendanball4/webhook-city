@@ -46,6 +46,8 @@ organizes them into **Projects**, and streams them in **real-time**.
 - [~] Live-tail stream — **polling (3s) for MVP**; SignalR upgrade pending ("pipes")
 - [ ] Retention policy (default 30-day TTL) — column stamped, cleanup job pending
 
+- [x] **Project capability decision point** — choose Webhooks / Log storage / Both at creation; gates UI panels per choice
+
 ### MVP status: ✅ end-to-end verified
 Create project → add endpoint → POST webhook (200 valid / 401 bad secret) →
 event stored with parsed status → live feed shows it with body/headers + status badge.

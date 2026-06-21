@@ -2,12 +2,14 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api, type ProjectDetail } from "@/lib/api";
 import { Header } from "@/components/Header";
 import { EndpointsPanel } from "@/components/EndpointsPanel";
 import { LiveFeed } from "@/components/LiveFeed";
 import { CapabilityBadge } from "@/components/CapabilityBadge";
 import { LogStoragePanel } from "@/components/LogStoragePanel";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 export default function ProjectPage({
   params,
@@ -15,8 +17,15 @@ export default function ProjectPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
+  const router = useRouter();
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  async function deleteProject() {
+    await api.deleteProject(slug);
+    router.push("/");
+  }
 
   const reload = useCallback(() => {
     return api
@@ -50,6 +59,12 @@ export default function ProjectPage({
             <div className="flex items-center gap-3 mt-2 mb-6">
               <h1 className="text-2xl font-semibold">{project.name}</h1>
               <CapabilityBadge capability={project.capability} />
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="ml-auto rounded-lg border border-rose-500/40 px-3 py-1.5 text-sm text-rose-300 hover:bg-rose-500/10"
+              >
+                Delete project
+              </button>
             </div>
             <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
               <div className="grid gap-6 content-start">
@@ -68,6 +83,23 @@ export default function ProjectPage({
                 capability={project.capability}
               />
             </div>
+
+            {confirmingDelete && (
+              <ConfirmModal
+                title={`Delete “${project.name}”?`}
+                message={
+                  <>
+                    This permanently deletes the project, its{" "}
+                    {project.endpoints.length} endpoint
+                    {project.endpoints.length === 1 ? "" : "s"}, and all stored
+                    events. This cannot be undone.
+                  </>
+                }
+                confirmLabel="Delete project"
+                onConfirm={deleteProject}
+                onCancel={() => setConfirmingDelete(false)}
+              />
+            )}
           </>
         )}
       </main>

@@ -36,7 +36,7 @@ organizes them into **Projects**, and streams them in **real-time**.
 - [x] Decide database → **PostgreSQL + EF Core**
 - [x] Data model (see below) — UUID PKs · single-user v1 (no auth yet)
 - [x] Scaffold C# Web API + EF Core entities + DbContext + InitialCreate migration
-- [x] docker-compose (API + Postgres), auto-migrate on startup — verified working
+- [x] docker-compose (web + API + Postgres, all containerized), auto-migrate on startup — verified working
 - [x] `POST /ingest/:projectSlug/:endpointSlug` — accepts any JSON payload (non-JSON wrapped)
 - [x] Secret-token validation per endpoint (header or query)
 - [x] Persist events to Postgres (jsonb body/headers, parsed status)

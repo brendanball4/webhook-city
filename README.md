@@ -22,9 +22,11 @@ See [TODO.md](TODO.md) for the full plan, data model, and idea backlog.
 docker compose up --build
 ```
 
-This starts Postgres and the API together. The API **auto-applies EF Core
-migrations on startup**, so the schema is created with no manual steps.
+This starts the **web frontend, API, and Postgres** together. The API
+**auto-applies EF Core migrations on startup**, so the schema is created with no
+manual steps.
 
+- Web: http://localhost:3000
 - API: http://localhost:5000
 - Postgres: localhost:5432 (db `webhookcity`, user/pass `postgres`/`postgres`)
 
@@ -42,6 +44,15 @@ dotnet run
 ```
 
 (The host connection string in `appsettings.json` points at `localhost:5432`.)
+
+For the frontend, run only `db` + `api` in Docker and the Next.js dev server on
+the host for hot reload:
+
+```bash
+docker compose up db api -d
+cd apps/web
+npm run dev   # http://localhost:3000 → calls the API at http://localhost:5000
+```
 
 ### Migrations
 

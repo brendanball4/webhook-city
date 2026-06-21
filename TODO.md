@@ -35,6 +35,8 @@ organizes them into **Projects**, and streams them in **real-time**.
 - [x] Decide frontend → **Next.js + React**
 - [x] Decide database → **PostgreSQL + EF Core**
 - [x] Data model (see below) — UUID PKs · single-user v1 (no auth yet)
+- [x] Scaffold C# Web API + EF Core entities + DbContext + InitialCreate migration
+- [x] docker-compose (API + Postgres), auto-migrate on startup — verified working
 - [ ] `POST /ingest/:projectSlug/:endpointSlug` — accept any JSON payload
 - [ ] Secret-token validation per endpoint
 - [ ] Persist events to Postgres

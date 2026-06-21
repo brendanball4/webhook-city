@@ -48,6 +48,7 @@ public class IngestController : ControllerBase
             ProjectId = endpoint.ProjectId,
             ReceivedAt = DateTimeOffset.UtcNow,
             Source = endpoint.Source,
+            Kind = endpoint.Kind,
             Status = StatusParser.Parse(endpoint.Source, body),
             Method = Request.Method,
             Headers = headers,

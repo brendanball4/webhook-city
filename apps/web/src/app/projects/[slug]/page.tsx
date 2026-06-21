@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, type ProjectDetail } from "@/lib/api";
 import { Header } from "@/components/Header";
@@ -18,12 +18,16 @@ export default function ProjectPage({
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api
+  const reload = useCallback(() => {
+    return api
       .getProject(slug)
       .then(setProject)
       .catch((e) => setError((e as Error).message));
   }, [slug]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   return (
     <>
@@ -53,6 +57,7 @@ export default function ProjectPage({
                   projectSlug={project.slug}
                   initial={project.endpoints}
                   capability={project.capability}
+                  onChange={reload}
                 />
                 {project.capability !== "Webhooks" && (
                   <LogStoragePanel projectSlug={project.slug} />

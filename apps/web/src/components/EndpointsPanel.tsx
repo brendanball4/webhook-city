@@ -1,25 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { api, API_BASE, type Endpoint } from "@/lib/api";
+import {
+  api,
+  API_BASE,
+  type Endpoint,
+  type EventKind,
+  type ProjectCapability,
+} from "@/lib/api";
+import { KindBadge } from "./KindBadge";
 
 const SOURCES = ["netlify", "circleci", "github", "stripe", "custom"];
 
 export function EndpointsPanel({
   projectSlug,
   initial,
+  capability,
 }: {
   projectSlug: string;
   initial: Endpoint[];
+  capability: ProjectCapability;
 }) {
   const [endpoints, setEndpoints] = useState<Endpoint[]>(initial);
   const [source, setSource] = useState("netlify");
+  const [kind, setKind] = useState<EventKind>(
+    capability === "Logs" ? "Log" : "Webhook",
+  );
   const [adding, setAdding] = useState(false);
+
+  // Only a "Both" project lets you choose per-endpoint; otherwise it's fixed.
+  const canChooseKind = capability === "Both";
 
   async function add() {
     setAdding(true);
     try {
-      const ep = await api.createEndpoint(projectSlug, source);
+      const ep = await api.createEndpoint(projectSlug, source, kind);
       setEndpoints((prev) => [...prev, ep]);
     } finally {
       setAdding(false);
@@ -31,6 +46,17 @@ export function EndpointsPanel({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h2 className="font-medium">Endpoints</h2>
         <div className="flex gap-2">
+          {canChooseKind && (
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as EventKind)}
+              className="rounded-md border border-border bg-surface-2 px-2 py-1 text-sm"
+              title="Endpoint kind"
+            >
+              <option value="Webhook">🪝 Webhook</option>
+              <option value="Log">📜 Log</option>
+            </select>
+          )}
           <select
             value={source}
             onChange={(e) => setSource(e.target.value)}
@@ -82,6 +108,9 @@ function EndpointItem({ endpoint }: { endpoint: Endpoint }) {
       <div className="flex items-center gap-2 mb-2">
         <span className="font-medium">{endpoint.source}</span>
         <span className="font-mono text-xs text-muted">/{endpoint.slug}</span>
+        <span className="ml-auto">
+          <KindBadge kind={endpoint.kind} />
+        </span>
       </div>
       <div className="flex items-center gap-2 mb-1">
         <code className="flex-1 truncate rounded bg-background border border-border px-2 py-1 text-xs font-mono">

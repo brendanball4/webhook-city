@@ -52,12 +52,16 @@ export default function ProjectPage({
                 <EndpointsPanel
                   projectSlug={project.slug}
                   initial={project.endpoints}
+                  capability={project.capability}
                 />
                 {project.capability !== "Webhooks" && (
                   <LogStoragePanel projectSlug={project.slug} />
                 )}
               </div>
-              <LiveFeed projectSlug={project.slug} />
+              <LiveFeed
+                projectSlug={project.slug}
+                capability={project.capability}
+              />
             </div>
           </>
         )}

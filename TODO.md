@@ -49,6 +49,7 @@ organizes them into **Projects**, and streams them in **real-time**.
 - [x] **Project capability decision point** — choose Webhooks / Log storage / Both at creation; gates UI panels per choice
 - [x] **Webhook vs Log distinction** — each endpoint has a kind; events stamped + badged (🪝/📜); feed filterable by kind
 - [x] **Capability is not a lock-in** — any project can add either kind anytime; adding the other kind auto-grows the project to Both (panels/filters appear live)
+- [x] **Delete endpoints** (inline confirm) and **delete projects** (are-you-sure modal); both cascade their children. Shared `ConfirmModal`; shared `UniqueSlugAsync` helper (DRY)
 
 ### MVP status: ✅ end-to-end verified
 Create project → add endpoint → POST webhook (200 valid / 401 bad secret) →

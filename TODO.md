@@ -47,6 +47,7 @@ organizes them into **Projects**, and streams them in **real-time**.
 - [ ] Retention policy (default 30-day TTL) — column stamped, cleanup job pending
 
 - [x] **Project capability decision point** — choose Webhooks / Log storage / Both at creation; gates UI panels per choice
+- [x] **Webhook vs Log distinction** — each endpoint has a kind; events stamped + badged (🪝/📜); feed filterable by kind
 
 ### MVP status: ✅ end-to-end verified
 Create project → add endpoint → POST webhook (200 valid / 401 bad secret) →

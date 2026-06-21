@@ -23,9 +23,12 @@ public class WebhookCityDbContext : DbContext
             entity.HasIndex(p => p.Slug).IsUnique();
             entity.Property(p => p.Name).IsRequired();
             entity.Property(p => p.Slug).IsRequired();
+            // Stored as a readable string. The application always sets this
+            // explicitly at creation, so no DB-generated default is configured
+            // (which would otherwise mask an explicit "Webhooks" choice, since
+            // it is the enum's zero value).
             entity.Property(p => p.Capability)
                 .HasConversion<string>()
-                .HasDefaultValue(ProjectCapability.Both)
                 .IsRequired();
         });
 

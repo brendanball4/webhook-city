@@ -3,10 +3,13 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
+export type ProjectCapability = "Webhooks" | "Logs" | "Both";
+
 export interface Project {
   id: string;
   name: string;
   slug: string;
+  capability: ProjectCapability;
   createdAt: string;
   endpointCount: number;
 }
@@ -24,6 +27,7 @@ export interface ProjectDetail {
   id: string;
   name: string;
   slug: string;
+  capability: ProjectCapability;
   createdAt: string;
   endpoints: Endpoint[];
 }
@@ -58,10 +62,10 @@ export const api = {
   getProject: (slug: string) =>
     http<ProjectDetail>(`/api/projects/${slug}`),
 
-  createProject: (name: string) =>
+  createProject: (name: string, capability: ProjectCapability) =>
     http<Project>("/api/projects", {
       method: "POST",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, capability }),
     }),
 
   createEndpoint: (projectSlug: string, source: string) =>

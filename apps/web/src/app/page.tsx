@@ -66,7 +66,12 @@ export default function HomePage() {
             className="w-full rounded-lg border border-border bg-background px-4 py-2 outline-none focus:border-accent mb-4"
           />
 
-          <div className="text-sm text-muted mb-2">What will it collect?</div>
+          <div className="text-sm text-muted mb-2">
+            What will it collect?{" "}
+            <span className="text-muted/70">
+              You can add the other type later, anytime.
+            </span>
+          </div>
           <div className="grid gap-2 sm:grid-cols-3 mb-4">
             {CAPABILITY_OPTIONS.map((cap) => {
               const meta = CAPABILITY_META[cap];

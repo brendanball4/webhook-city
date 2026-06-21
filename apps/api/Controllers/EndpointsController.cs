@@ -90,4 +90,20 @@ public class EndpointsController : ControllerBase
 
         return Ok(Mapping.ToResponse(endpoint));
     }
+
+    [HttpDelete("{endpointSlug}")]
+    public async Task<IActionResult> Delete(string projectSlug, string endpointSlug)
+    {
+        var endpoint = await _db.Endpoints
+            .FirstOrDefaultAsync(e =>
+                e.Slug == endpointSlug && e.Project!.Slug == projectSlug);
+
+        if (endpoint is null)
+            return NotFound();
+
+        // The endpoint's events cascade-delete via their FK configuration.
+        _db.Endpoints.Remove(endpoint);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
 }

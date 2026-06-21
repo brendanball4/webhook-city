@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16
+    container_name: webhookcity-db
+    environment:
+      POSTGRES_DB: webhookcity
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d webhookcity"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./apps/api
+    container_name: webhookcity-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # Inside the compose network Postgres is reachable by its service name "db".
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=webhookcity;Username=postgres;Password=postgres"
+    ports:
+      - "5000:8080"
+
+volumes:
+  pgdata:

@@ -70,4 +70,17 @@ public class ProjectsController : ControllerBase
 
         return CreatedAtAction(nameof(Get), new { slug = project.Slug }, response);
     }
+
+    [HttpDelete("{slug}")]
+    public async Task<IActionResult> Delete(string slug)
+    {
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Slug == slug);
+        if (project is null)
+            return NotFound();
+
+        // Endpoints and events cascade-delete via their FK configuration.
+        _db.Projects.Remove(project);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
 }

@@ -11,6 +11,7 @@ public static class Mapping
         e.Id,
         e.Slug,
         e.Source,
+        e.Kind,
         e.SecretToken,
         e.CreatedAt,
         $"/ingest/{e.Project?.Slug}/{e.Slug}");
@@ -37,6 +38,7 @@ public static class Mapping
         ev.ProjectId,
         ev.ReceivedAt,
         ev.Source,
+        ev.Kind,
         ev.Status,
         ev.Method,
         ev.Headers?.RootElement,

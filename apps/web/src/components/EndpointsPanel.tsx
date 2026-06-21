@@ -42,6 +42,11 @@ export function EndpointsPanel({
     }
   }
 
+  async function remove(endpoint: Endpoint) {
+    await api.deleteEndpoint(projectSlug, endpoint.slug);
+    setEndpoints((prev) => prev.filter((e) => e.id !== endpoint.id));
+  }
+
   return (
     <section className="rounded-xl border border-border bg-surface">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -84,7 +89,7 @@ export function EndpointsPanel({
       ) : (
         <ul className="divide-y divide-border">
           {endpoints.map((ep) => (
-            <EndpointItem key={ep.id} endpoint={ep} />
+            <EndpointItem key={ep.id} endpoint={ep} onDelete={() => remove(ep)} />
           ))}
         </ul>
       )}
@@ -92,14 +97,32 @@ export function EndpointsPanel({
   );
 }
 
-function EndpointItem({ endpoint }: { endpoint: Endpoint }) {
+function EndpointItem({
+  endpoint,
+  onDelete,
+}: {
+  endpoint: Endpoint;
+  onDelete: () => Promise<void>;
+}) {
   const [copied, setCopied] = useState<"url" | "secret" | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const url = `${API_BASE}${endpoint.ingestPath}`;
 
   function copy(text: string, which: "url" | "secret") {
     navigator.clipboard.writeText(text);
     setCopied(which);
     setTimeout(() => setCopied(null), 1500);
+  }
+
+  async function confirmDelete() {
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
+      setConfirming(false);
+    }
   }
 
   return (
@@ -110,6 +133,32 @@ function EndpointItem({ endpoint }: { endpoint: Endpoint }) {
         <span className="ml-auto">
           <KindBadge kind={endpoint.kind} />
         </span>
+        {confirming ? (
+          <span className="flex items-center gap-1">
+            <button
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="text-xs rounded-md bg-rose-600 px-2 py-1 text-white hover:bg-rose-500 disabled:opacity-50"
+            >
+              {deleting ? "…" : "Confirm"}
+            </button>
+            <button
+              onClick={() => setConfirming(false)}
+              disabled={deleting}
+              className="text-xs rounded-md border border-border px-2 py-1 hover:bg-surface-2"
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            onClick={() => setConfirming(true)}
+            title="Delete endpoint"
+            className="text-xs rounded-md border border-border px-2 py-1 text-muted hover:bg-surface-2 hover:text-rose-300"
+          >
+            Delete
+          </button>
+        )}
       </div>
       <div className="flex items-center gap-2 mb-1">
         <code className="flex-1 truncate rounded bg-background border border-border px-2 py-1 text-xs font-mono">

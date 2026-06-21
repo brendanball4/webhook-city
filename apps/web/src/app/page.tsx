@@ -2,12 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api, type Project } from "@/lib/api";
+import { api, type Project, type ProjectCapability } from "@/lib/api";
 import { Header } from "@/components/Header";
+import { CapabilityBadge, CAPABILITY_META } from "@/components/CapabilityBadge";
+
+const CAPABILITY_OPTIONS: ProjectCapability[] = ["Webhooks", "Logs", "Both"];
 
 export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
+  const [capability, setCapability] = useState<ProjectCapability>("Both");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +36,9 @@ export default function HomePage() {
     if (!name.trim()) return;
     setCreating(true);
     try {
-      await api.createProject(name.trim());
+      await api.createProject(name.trim(), capability);
       setName("");
+      setCapability("Both");
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -50,19 +55,49 @@ export default function HomePage() {
           <h1 className="text-2xl font-semibold">Projects</h1>
         </div>
 
-        <form onSubmit={create} className="flex gap-2 mb-8">
+        <form
+          onSubmit={create}
+          className="mb-8 rounded-xl border border-border bg-surface p-5"
+        >
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="New project name…"
-            className="flex-1 rounded-lg border border-border bg-surface px-4 py-2 outline-none focus:border-accent"
+            className="w-full rounded-lg border border-border bg-background px-4 py-2 outline-none focus:border-accent mb-4"
           />
+
+          <div className="text-sm text-muted mb-2">What will it collect?</div>
+          <div className="grid gap-2 sm:grid-cols-3 mb-4">
+            {CAPABILITY_OPTIONS.map((cap) => {
+              const meta = CAPABILITY_META[cap];
+              const selected = capability === cap;
+              return (
+                <button
+                  type="button"
+                  key={cap}
+                  onClick={() => setCapability(cap)}
+                  className={`text-left rounded-lg border p-3 transition-colors ${
+                    selected
+                      ? "border-accent bg-accent/10"
+                      : "border-border bg-background hover:border-muted"
+                  }`}
+                >
+                  <div className="font-medium flex items-center gap-1.5">
+                    <span>{meta.icon}</span>
+                    {meta.label}
+                  </div>
+                  <div className="text-xs text-muted mt-1">{meta.blurb}</div>
+                </button>
+              );
+            })}
+          </div>
+
           <button
             type="submit"
             disabled={creating || !name.trim()}
             className="rounded-lg bg-accent px-4 py-2 font-medium text-white disabled:opacity-50"
           >
-            {creating ? "Creating…" : "Create"}
+            {creating ? "Creating…" : "Create project"}
           </button>
         </form>
 
@@ -84,7 +119,10 @@ export default function HomePage() {
                   href={`/projects/${p.slug}`}
                   className="block rounded-xl border border-border bg-surface p-5 hover:border-accent transition-colors"
                 >
-                  <div className="font-medium text-lg">{p.name}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium text-lg">{p.name}</div>
+                    <CapabilityBadge capability={p.capability} />
+                  </div>
                   <div className="text-muted text-sm mt-1">
                     {p.endpointCount} endpoint{p.endpointCount === 1 ? "" : "s"}
                     {" · "}

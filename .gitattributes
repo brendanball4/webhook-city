@@ -1,0 +1,12 @@
+# Normalize line endings to LF in the repo; check out native on each OS
+* text=auto
+
+# Keep these as LF always
+*.cs    text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.md    text eol=lf
+*.sh    text eol=lf

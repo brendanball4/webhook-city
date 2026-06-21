@@ -49,11 +49,9 @@ public class ProjectsController : ControllerBase
         if (!Enum.IsDefined(request.Capability))
             return BadRequest("Invalid capability.");
 
-        var baseSlug = SlugGenerator.Slugify(request.Name);
-        var slug = baseSlug;
-        var suffix = 1;
-        while (await _db.Projects.AnyAsync(p => p.Slug == slug))
-            slug = $"{baseSlug}-{++suffix}";
+        var slug = await SlugGenerator.UniqueSlugAsync(
+            SlugGenerator.Slugify(request.Name),
+            s => _db.Projects.AnyAsync(p => p.Slug == s));
 
         var project = new Project
         {

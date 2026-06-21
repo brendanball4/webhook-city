@@ -66,14 +66,12 @@ public class EndpointsController : ControllerBase
             project.Capability = ProjectCapability.Both;
         }
 
-        var baseSlug = string.IsNullOrWhiteSpace(request.Slug)
-            ? SlugGenerator.Slugify(request.Source)
-            : SlugGenerator.Slugify(request.Slug);
+        var baseSlug = SlugGenerator.Slugify(
+            string.IsNullOrWhiteSpace(request.Slug) ? request.Source : request.Slug);
 
-        var slug = baseSlug;
-        var suffix = 1;
-        while (await _db.Endpoints.AnyAsync(e => e.ProjectId == project.Id && e.Slug == slug))
-            slug = $"{baseSlug}-{++suffix}";
+        var slug = await SlugGenerator.UniqueSlugAsync(
+            baseSlug,
+            s => _db.Endpoints.AnyAsync(e => e.ProjectId == project.Id && e.Slug == s));
 
         var endpoint = new Endpoint
         {

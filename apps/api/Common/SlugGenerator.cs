@@ -32,6 +32,20 @@ public static class SlugGenerator
         return string.IsNullOrEmpty(slug) ? RandomToken(6) : slug;
     }
 
+    /// <summary>
+    /// Produce a slug that is unique according to <paramref name="exists"/>, appending
+    /// `-2`, `-3`, … until a free one is found.
+    /// </summary>
+    public static async Task<string> UniqueSlugAsync(
+        string baseSlug, Func<string, Task<bool>> exists)
+    {
+        var slug = baseSlug;
+        var suffix = 1;
+        while (await exists(slug))
+            slug = $"{baseSlug}-{++suffix}";
+        return slug;
+    }
+
     /// <summary>Generate a random URL-safe token (e.g. for endpoint slugs and secrets).</summary>
     public static string RandomToken(int length = 24)
     {

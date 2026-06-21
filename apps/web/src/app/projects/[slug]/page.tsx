@@ -6,6 +6,8 @@ import { api, type ProjectDetail } from "@/lib/api";
 import { Header } from "@/components/Header";
 import { EndpointsPanel } from "@/components/EndpointsPanel";
 import { LiveFeed } from "@/components/LiveFeed";
+import { CapabilityBadge } from "@/components/CapabilityBadge";
+import { LogStoragePanel } from "@/components/LogStoragePanel";
 
 export default function ProjectPage({
   params,
@@ -41,12 +43,20 @@ export default function ProjectPage({
           <p className="text-muted mt-6">Loading…</p>
         ) : (
           <>
-            <h1 className="text-2xl font-semibold mt-2 mb-6">{project.name}</h1>
+            <div className="flex items-center gap-3 mt-2 mb-6">
+              <h1 className="text-2xl font-semibold">{project.name}</h1>
+              <CapabilityBadge capability={project.capability} />
+            </div>
             <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-              <EndpointsPanel
-                projectSlug={project.slug}
-                initial={project.endpoints}
-              />
+              <div className="grid gap-6 content-start">
+                <EndpointsPanel
+                  projectSlug={project.slug}
+                  initial={project.endpoints}
+                />
+                {project.capability !== "Webhooks" && (
+                  <LogStoragePanel projectSlug={project.slug} />
+                )}
+              </div>
               <LiveFeed projectSlug={project.slug} />
             </div>
           </>

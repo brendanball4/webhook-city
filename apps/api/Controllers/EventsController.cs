@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using WebhookCity.Api.Common;
 using WebhookCity.Api.Data;
 using WebhookCity.Api.Dtos;
+using WebhookCity.Api.Models;
 
 namespace WebhookCity.Api.Controllers;
 
@@ -19,7 +20,8 @@ public class EventsController : ControllerBase
     public async Task<ActionResult<IEnumerable<EventResponse>>> List(
         string projectSlug,
         [FromQuery] int take = 50,
-        [FromQuery] DateTimeOffset? before = null)
+        [FromQuery] DateTimeOffset? before = null,
+        [FromQuery] EventKind? kind = null)
     {
         var project = await _db.Projects
             .FirstOrDefaultAsync(p => p.Slug == projectSlug);
@@ -31,6 +33,9 @@ public class EventsController : ControllerBase
 
         var query = _db.Events
             .Where(e => e.ProjectId == project.Id);
+
+        if (kind is not null)
+            query = query.Where(e => e.Kind == kind);
 
         if (before is not null)
             query = query.Where(e => e.ReceivedAt < before);

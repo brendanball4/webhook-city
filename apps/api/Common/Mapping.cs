@@ -1,5 +1,6 @@
 using WebhookCity.Api.Dtos;
 using WebhookCity.Api.Models;
+using Endpoint = WebhookCity.Api.Models.Endpoint;
 
 namespace WebhookCity.Api.Common;
 

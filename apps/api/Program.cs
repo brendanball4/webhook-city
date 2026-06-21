@@ -15,6 +15,13 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// Apply pending EF Core migrations on startup so the schema is ready in any environment.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<WebhookCityDbContext>();
+    db.Database.Migrate();
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

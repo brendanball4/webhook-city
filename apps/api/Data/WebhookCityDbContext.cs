@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using WebhookCity.Api.Models;
+using Endpoint = WebhookCity.Api.Models.Endpoint;
 
 namespace WebhookCity.Api.Data;
 

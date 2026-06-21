@@ -5,6 +5,8 @@ export const API_BASE =
 
 export type ProjectCapability = "Webhooks" | "Logs" | "Both";
 
+export type EventKind = "Webhook" | "Log";
+
 export interface Project {
   id: string;
   name: string;
@@ -18,6 +20,7 @@ export interface Endpoint {
   id: string;
   slug: string;
   source: string;
+  kind: EventKind;
   secretToken: string;
   createdAt: string;
   ingestPath: string;
@@ -38,6 +41,7 @@ export interface WebhookEvent {
   projectId: string;
   receivedAt: string;
   source: string;
+  kind: EventKind;
   status: string | null;
   method: string;
   headers: Record<string, unknown> | null;
@@ -68,14 +72,15 @@ export const api = {
       body: JSON.stringify({ name, capability }),
     }),
 
-  createEndpoint: (projectSlug: string, source: string) =>
+  createEndpoint: (projectSlug: string, source: string, kind: EventKind) =>
     http<Endpoint>(`/api/projects/${projectSlug}/endpoints`, {
       method: "POST",
-      body: JSON.stringify({ source }),
+      body: JSON.stringify({ source, kind }),
     }),
 
-  listEvents: (projectSlug: string, take = 50) =>
+  listEvents: (projectSlug: string, take = 50, kind?: EventKind) =>
     http<WebhookEvent[]>(
-      `/api/projects/${projectSlug}/events?take=${take}`,
+      `/api/projects/${projectSlug}/events?take=${take}` +
+        (kind ? `&kind=${kind}` : ""),
     ),
 };

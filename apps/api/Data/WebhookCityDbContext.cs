@@ -23,6 +23,10 @@ public class WebhookCityDbContext : DbContext
             entity.HasIndex(p => p.Slug).IsUnique();
             entity.Property(p => p.Name).IsRequired();
             entity.Property(p => p.Slug).IsRequired();
+            entity.Property(p => p.Capability)
+                .HasConversion<string>()
+                .HasDefaultValue(ProjectCapability.Both)
+                .IsRequired();
         });
 
         modelBuilder.Entity<Endpoint>(entity =>

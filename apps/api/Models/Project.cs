@@ -12,6 +12,9 @@ public class Project
     /// <summary>URL-safe identifier used in the public ingest URL.</summary>
     public required string Slug { get; set; }
 
+    /// <summary>What this project collects: webhooks, logs, or both.</summary>
+    public ProjectCapability Capability { get; set; } = ProjectCapability.Both;
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public ICollection<Endpoint> Endpoints { get; set; } = new List<Endpoint>();

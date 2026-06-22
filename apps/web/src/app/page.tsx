@@ -1,24 +1,37 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { api, type Project, type ProjectCapability } from "@/lib/api";
+import {
+  api,
+  type Project,
+  type Group,
+  type ProjectCapability,
+} from "@/lib/api";
 import { Header } from "@/components/Header";
-import { CapabilityBadge, CAPABILITY_META } from "@/components/CapabilityBadge";
+import { CAPABILITY_META } from "@/components/CapabilityBadge";
+import { GroupSection } from "@/components/GroupSection";
 
 const CAPABILITY_OPTIONS: ProjectCapability[] = ["Webhooks", "Logs", "Both"];
 
 export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [name, setName] = useState("");
   const [capability, setCapability] = useState<ProjectCapability>("Both");
+  const [groupId, setGroupId] = useState<string>(""); // "" = no group
+  const [newGroupName, setNewGroupName] = useState("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
     try {
-      setProjects(await api.listProjects());
+      const [ps, gs] = await Promise.all([
+        api.listProjects(),
+        api.listGroups(),
+      ]);
+      setProjects(ps);
+      setGroups(gs);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -36,7 +49,7 @@ export default function HomePage() {
     if (!name.trim()) return;
     setCreating(true);
     try {
-      await api.createProject(name.trim(), capability);
+      await api.createProject(name.trim(), capability, groupId || null);
       setName("");
       setCapability("Both");
       await load();
@@ -46,6 +59,21 @@ export default function HomePage() {
       setCreating(false);
     }
   }
+
+  async function addGroup() {
+    if (!newGroupName.trim()) return;
+    try {
+      const g = await api.createGroup(newGroupName.trim());
+      setNewGroupName("");
+      setGroupId(g.id); // select the new group for the next project
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  // Projects bucketed by group, groups ordered as returned (by name).
+  const ungrouped = projects.filter((p) => !p.groupId);
 
   return (
     <>
@@ -97,6 +125,43 @@ export default function HomePage() {
             })}
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <label className="text-sm text-muted">Group:</label>
+            <select
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+            >
+              <option value="">No group</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+            <span className="text-muted text-sm">or</span>
+            <input
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              placeholder="New group name…"
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addGroup();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={addGroup}
+              disabled={!newGroupName.trim()}
+              className="text-sm rounded-md border border-border px-3 py-1.5 hover:bg-surface-2 disabled:opacity-50"
+            >
+              Add group
+            </button>
+          </div>
+
           <button
             type="submit"
             disabled={creating || !name.trim()}
@@ -114,29 +179,22 @@ export default function HomePage() {
 
         {loading ? (
           <p className="text-muted">Loading…</p>
-        ) : projects.length === 0 ? (
+        ) : projects.length === 0 && groups.length === 0 ? (
           <p className="text-muted">No projects yet. Create one above.</p>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {projects.map((p) => (
-              <li key={p.id}>
-                <Link
-                  href={`/projects/${p.slug}`}
-                  className="block rounded-xl border border-border bg-surface p-5 hover:border-accent transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-medium text-lg">{p.name}</div>
-                    <CapabilityBadge capability={p.capability} />
-                  </div>
-                  <div className="text-muted text-sm mt-1">
-                    {p.endpointCount} endpoint{p.endpointCount === 1 ? "" : "s"}
-                    {" · "}
-                    <span className="font-mono">/{p.slug}</span>
-                  </div>
-                </Link>
-              </li>
+          <>
+            {groups.map((g) => (
+              <GroupSection
+                key={g.id}
+                group={g}
+                projects={projects.filter((p) => p.groupId === g.id)}
+                onChange={load}
+              />
             ))}
-          </ul>
+            {ungrouped.length > 0 && (
+              <GroupSection group={null} projects={ungrouped} onChange={load} />
+            )}
+          </>
         )}
       </main>
     </>

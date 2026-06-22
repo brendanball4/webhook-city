@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, type ProjectDetail } from "@/lib/api";
+import { api, type ProjectDetail, type Group } from "@/lib/api";
 import { Header } from "@/components/Header";
 import { EndpointsPanel } from "@/components/EndpointsPanel";
 import { LiveFeed } from "@/components/LiveFeed";
@@ -19,12 +19,18 @@ export default function ProjectPage({
   const { slug } = use(params);
   const router = useRouter();
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   async function deleteProject() {
     await api.deleteProject(slug);
     router.push("/");
+  }
+
+  async function changeGroup(groupId: string) {
+    await api.setProjectGroup(slug, groupId || null);
+    reload();
   }
 
   const reload = useCallback(() => {
@@ -36,6 +42,7 @@ export default function ProjectPage({
 
   useEffect(() => {
     reload();
+    api.listGroups().then(setGroups).catch(() => {});
   }, [reload]);
 
   return (
@@ -59,6 +66,19 @@ export default function ProjectPage({
             <div className="flex items-center gap-3 mt-2 mb-6">
               <h1 className="text-2xl font-semibold">{project.name}</h1>
               <CapabilityBadge capability={project.capability} />
+              <select
+                value={project.groupId ?? ""}
+                onChange={(e) => changeGroup(e.target.value)}
+                title="Group"
+                className="rounded-md border border-border bg-surface px-2 py-1 text-sm"
+              >
+                <option value="">No group</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
               <button
                 onClick={() => setConfirmingDelete(true)}
                 className="ml-auto rounded-lg border border-rose-500/40 px-3 py-1.5 text-sm text-rose-300 hover:bg-rose-500/10"

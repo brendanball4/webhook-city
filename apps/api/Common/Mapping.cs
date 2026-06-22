@@ -21,6 +21,7 @@ public static class Mapping
         p.Name,
         p.Slug,
         p.Capability,
+        p.GroupId,
         p.CreatedAt,
         p.Endpoints
             .OrderBy(e => e.CreatedAt)
@@ -31,6 +32,14 @@ public static class Mapping
                 return ToResponse(e);
             })
             .ToList());
+
+    public static GroupResponse ToResponse(Group g) => new(
+        g.Id,
+        g.Name,
+        g.Slug,
+        g.Color,
+        g.CreatedAt,
+        g.Projects?.Count ?? 0);
 
     public static EventResponse ToResponse(Event ev) => new(
         ev.Id,

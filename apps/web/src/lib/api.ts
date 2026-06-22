@@ -46,6 +46,24 @@ export interface ProjectDetail {
   endpoints: Endpoint[];
 }
 
+export type Health = "healthy" | "failing" | "pending" | "active" | "idle";
+
+export interface EndpointHealth {
+  endpointId: string;
+  source: string;
+  slug: string;
+  kind: EventKind;
+  lastSeenAt: string | null;
+  lastStatus: string | null;
+  health: Health;
+  total: number;
+  successCount: number;
+  errorCount: number;
+  pendingCount: number;
+  failureRate: number;
+  recentStatuses: (string | null)[];
+}
+
 export interface WebhookEvent {
   id: string;
   endpointId: string;
@@ -128,6 +146,9 @@ export const api = {
       `/api/projects/${projectSlug}/endpoints/${endpointSlug}`,
       { method: "DELETE" },
     ),
+
+  getHealth: (projectSlug: string) =>
+    http<EndpointHealth[]>(`/api/projects/${projectSlug}/health`),
 
   listEvents: (projectSlug: string, take = 50, kind?: EventKind) =>
     http<WebhookEvent[]>(

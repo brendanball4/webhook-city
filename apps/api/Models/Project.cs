@@ -15,6 +15,10 @@ public class Project
     /// <summary>What this project collects: webhooks, logs, or both.</summary>
     public ProjectCapability Capability { get; set; } = ProjectCapability.Both;
 
+    /// <summary>Optional group this project belongs to (null = ungrouped).</summary>
+    public Guid? GroupId { get; set; }
+    public Group? Group { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public ICollection<Endpoint> Endpoints { get; set; } = new List<Endpoint>();

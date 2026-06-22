@@ -7,11 +7,21 @@ export type ProjectCapability = "Webhooks" | "Logs" | "Both";
 
 export type EventKind = "Webhook" | "Log";
 
+export interface Group {
+  id: string;
+  name: string;
+  slug: string;
+  color: string | null;
+  createdAt: string;
+  projectCount: number;
+}
+
 export interface Project {
   id: string;
   name: string;
   slug: string;
   capability: ProjectCapability;
+  groupId: string | null;
   createdAt: string;
   endpointCount: number;
 }
@@ -31,6 +41,7 @@ export interface ProjectDetail {
   name: string;
   slug: string;
   capability: ProjectCapability;
+  groupId: string | null;
   createdAt: string;
   endpoints: Endpoint[];
 }
@@ -70,11 +81,38 @@ export const api = {
   getProject: (slug: string) =>
     http<ProjectDetail>(`/api/projects/${slug}`),
 
-  createProject: (name: string, capability: ProjectCapability) =>
+  createProject: (
+    name: string,
+    capability: ProjectCapability,
+    groupId: string | null = null,
+  ) =>
     http<Project>("/api/projects", {
       method: "POST",
-      body: JSON.stringify({ name, capability }),
+      body: JSON.stringify({ name, capability, groupId }),
     }),
+
+  setProjectGroup: (slug: string, groupId: string | null) =>
+    http<Project>(`/api/projects/${slug}/group`, {
+      method: "PUT",
+      body: JSON.stringify({ groupId }),
+    }),
+
+  listGroups: () => http<Group[]>("/api/groups"),
+
+  createGroup: (name: string, color: string | null = null) =>
+    http<Group>("/api/groups", {
+      method: "POST",
+      body: JSON.stringify({ name, color }),
+    }),
+
+  updateGroup: (id: string, name: string, color: string | null) =>
+    http<Group>(`/api/groups/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name, color }),
+    }),
+
+  deleteGroup: (id: string) =>
+    http<void>(`/api/groups/${id}`, { method: "DELETE" }),
 
   createEndpoint: (projectSlug: string, source: string, kind: EventKind) =>
     http<Endpoint>(`/api/projects/${projectSlug}/endpoints`, {

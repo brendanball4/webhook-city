@@ -14,6 +14,7 @@ public class WebhookCityDbContext : DbContext
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Endpoint> Endpoints => Set<Endpoint>();
     public DbSet<Event> Events => Set<Event>();
+    public DbSet<Group> Groups => Set<Group>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -30,6 +31,21 @@ public class WebhookCityDbContext : DbContext
             entity.Property(p => p.Capability)
                 .HasConversion<string>()
                 .IsRequired();
+
+            // Deleting a group orphans its projects (sets GroupId null), never
+            // cascade-deletes the projects.
+            entity.HasOne(p => p.Group)
+                .WithMany(g => g.Projects)
+                .HasForeignKey(p => p.GroupId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Group>(entity =>
+        {
+            entity.HasKey(g => g.Id);
+            entity.HasIndex(g => g.Slug).IsUnique();
+            entity.Property(g => g.Name).IsRequired();
+            entity.Property(g => g.Slug).IsRequired();
         });
 
         modelBuilder.Entity<Endpoint>(entity =>

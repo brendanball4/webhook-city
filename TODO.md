@@ -50,6 +50,7 @@ organizes them into **Projects**, and streams them in **real-time**.
 - [x] **Webhook vs Log distinction** — each endpoint has a kind; events stamped + badged (🪝/📜); feed filterable by kind
 - [x] **Capability is not a lock-in** — any project can add either kind anytime; adding the other kind auto-grows the project to Both (panels/filters appear live)
 - [x] **Delete endpoints** (inline confirm) and **delete projects** (are-you-sure modal); both cascade their children. Shared `ConfirmModal`; shared `UniqueSlugAsync` helper (DRY)
+- [x] **Groups** — flat folders of projects (one group per project, nullable). Create/rename/delete groups; assign at creation or move from project detail. Deleting a group orphans its projects (SetNull), never deletes them. Home page renders per-group sections + Ungrouped.
 
 ### MVP status: ✅ end-to-end verified
 Create project → add endpoint → POST webhook (200 valid / 401 bad secret) →

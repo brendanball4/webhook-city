@@ -124,9 +124,10 @@ events                                 -- the log entries (heavy table)
 - [ ] Generic fallback — raw JSON viewer with collapsible tree
 
 ### Status & Health
-- [ ] **Status board** — a wall of service tiles (green/red) per project
-- [ ] **Uptime/last-seen** — "CircleCI last reported 3m ago"
-- [ ] Aggregate **failure rate** sparkline per source
+- [x] **Status board** — a wall of health tiles (green/red/amber/idle) per project, polled every 5s
+- [x] **Uptime/last-seen** — "ci last reported 3m ago" via `timeAgo` helper
+- [x] Aggregate **failure rate** + recent-events strip (last 20, colored) per source
+  - Backend: `GET /api/projects/{slug}/health` — per-endpoint aggregates + `HealthEvaluator`
 
 ### Developer Tools
 - [ ] **Replay** an event — re-send a captured webhook to a target URL (great for local dev)

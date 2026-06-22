@@ -10,6 +10,7 @@ import { LiveFeed } from "@/components/LiveFeed";
 import { CapabilityBadge } from "@/components/CapabilityBadge";
 import { LogStoragePanel } from "@/components/LogStoragePanel";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { StatusBoard } from "@/components/StatusBoard";
 
 export default function ProjectPage({
   params,
@@ -86,6 +87,8 @@ export default function ProjectPage({
                 Delete project
               </button>
             </div>
+            <StatusBoard projectSlug={project.slug} />
+
             <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
               <div className="grid gap-6 content-start">
                 <EndpointsPanel

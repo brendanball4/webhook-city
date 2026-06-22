@@ -21,7 +21,7 @@ public class ProjectsController : ControllerBase
         var projects = await _db.Projects
             .OrderByDescending(p => p.CreatedAt)
             .Select(p => new ProjectResponse(
-                p.Id, p.Name, p.Slug, p.Capability, p.CreatedAt, p.Endpoints.Count))
+                p.Id, p.Name, p.Slug, p.Capability, p.GroupId, p.CreatedAt, p.Endpoints.Count))
             .ToListAsync();
 
         return Ok(projects);
@@ -49,6 +49,9 @@ public class ProjectsController : ControllerBase
         if (!Enum.IsDefined(request.Capability))
             return BadRequest("Invalid capability.");
 
+        if (request.GroupId is { } gid && !await _db.Groups.AnyAsync(g => g.Id == gid))
+            return BadRequest("Group not found.");
+
         var slug = await SlugGenerator.UniqueSlugAsync(
             SlugGenerator.Slugify(request.Name),
             s => _db.Projects.AnyAsync(p => p.Slug == s));
@@ -59,6 +62,7 @@ public class ProjectsController : ControllerBase
             Name = request.Name.Trim(),
             Slug = slug,
             Capability = request.Capability,
+            GroupId = request.GroupId,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
@@ -66,7 +70,8 @@ public class ProjectsController : ControllerBase
         await _db.SaveChangesAsync();
 
         var response = new ProjectResponse(
-            project.Id, project.Name, project.Slug, project.Capability, project.CreatedAt, 0);
+            project.Id, project.Name, project.Slug, project.Capability,
+            project.GroupId, project.CreatedAt, 0);
 
         return CreatedAtAction(nameof(Get), new { slug = project.Slug }, response);
     }
@@ -82,5 +87,28 @@ public class ProjectsController : ControllerBase
         _db.Projects.Remove(project);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    /// <summary>Move a project into a group, or out to ungrouped (null GroupId).</summary>
+    [HttpPut("{slug}/group")]
+    public async Task<ActionResult<ProjectResponse>> SetGroup(
+        string slug, UpdateProjectGroupRequest request)
+    {
+        var project = await _db.Projects
+            .Include(p => p.Endpoints)
+            .FirstOrDefaultAsync(p => p.Slug == slug);
+
+        if (project is null)
+            return NotFound();
+
+        if (request.GroupId is { } gid && !await _db.Groups.AnyAsync(g => g.Id == gid))
+            return BadRequest("Group not found.");
+
+        project.GroupId = request.GroupId;
+        await _db.SaveChangesAsync();
+
+        return Ok(new ProjectResponse(
+            project.Id, project.Name, project.Slug, project.Capability,
+            project.GroupId, project.CreatedAt, project.Endpoints.Count));
     }
 }

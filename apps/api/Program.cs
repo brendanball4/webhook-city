@@ -15,11 +15,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<WebhookCityDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
+// Comma-separated list, e.g. CORS_ORIGINS="https://webhookcity.netlify.app".
+// Falls back to the local dev server so nothing extra is needed on a laptop.
+var corsOrigins = (builder.Configuration["CORS_ORIGINS"] ?? "http://localhost:3000")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 const string FrontendCors = "frontend";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(FrontendCors, policy => policy
-        .WithOrigins("http://localhost:3000")
+        .WithOrigins(corsOrigins)
         .AllowAnyHeader()
         .AllowAnyMethod()
         // Required so the browser will send/receive the httpOnly refresh cookie.

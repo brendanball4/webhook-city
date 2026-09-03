@@ -117,6 +117,7 @@ events                                 -- the log entries (heavy table)
 - [ ] JSONPath/query bar — drill into payload fields (`$.deploy.state == "error"`)
 
 ### Service Integrations (pre-built parsers)
+- [x] **Xcode Cloud** — receive all build lifecycle events, verify Apple HMAC signatures, and parse nested build status
 - [ ] **Netlify** — pretty-render deploy events (site, branch, deploy state, URL)
 - [ ] **CircleCI** — build status, job name, branch, pass/fail badge
 - [ ] **GitHub** — push/PR/issue events
@@ -136,7 +137,7 @@ events                                 -- the log entries (heavy table)
 - [ ] **Mock sender** — fire test events from the UI to see how they render
 
 ### Power Features
-- [ ] **Alerts/Rules engine** — "if status == error, ping Slack/Discord/email"
+- [~] **Alerts/Rules engine** — project-level Slack forwarding is implemented with a durable retry queue; filters and other destinations pending
 - [ ] **API keys** for programmatic log ingestion (your own services pipe logs in)
 - [ ] **Webhook signature verification** presets (Stripe, GitHub HMAC, etc.)
 - [ ] **Multi-tenant / teams** — invite members to a project

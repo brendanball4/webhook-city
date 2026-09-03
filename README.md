@@ -54,6 +54,21 @@ cd apps/web
 npm run dev   # http://localhost:3000 → calls the API at http://localhost:5000
 ```
 
+## Xcode Cloud webhooks
+
+Add an `xcode-cloud` webhook endpoint to a project. In App Store Connect, enter
+the displayed HTTPS ingest URL as the payload URL and the displayed token as the
+secret. The receiver verifies Apple's `X-Apple-Signature` HMAC-SHA256 signature,
+accepts every Xcode Cloud build event, preserves the complete JSON payload, and
+derives dashboard status from the nested build fields.
+
+### Slack notifications
+
+Each project can connect a channel-specific Slack Incoming Webhook from its
+project page. New Apple/Xcode Cloud events are stored first, then queued for
+Slack delivery with retry handling. The webhook URL stays server-side and is
+never included in API responses.
+
 ### Migrations
 
 ```bash

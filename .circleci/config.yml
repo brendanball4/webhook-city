@@ -1,0 +1,94 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: mcr.microsoft.com/dotnet/sdk:8.0
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - nuget-v1-{{ checksum "apps/api/WebhookCity.Api.csproj" }}
+            - nuget-v1-
+      - run:
+          name: Restore dependencies
+          command: dotnet restore apps/api/WebhookCity.Api.csproj
+      - save_cache:
+          key: nuget-v1-{{ checksum "apps/api/WebhookCity.Api.csproj" }}
+          paths:
+            - ~/.nuget/packages
+      - run:
+          name: Build
+          command: dotnet build apps/api/WebhookCity.Api.csproj --no-restore -c Release
+
+  deploy:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "$SSH_FINGERPRINT"
+      - run:
+          name: Install cloudflared
+          command: |
+            curl -L -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+            chmod +x cloudflared
+            sudo mv cloudflared /usr/local/bin/
+      - run:
+          name: Deploy
+          no_output_timeout: 30m
+          command: |
+            # The Pi builds the image itself: slow, and mostly silent while layers
+            # pull. The tunnel drops a long-lived session, so nothing here depends
+            # on one staying open. The build is launched fully detached and the job
+            # polls with short-lived connections for a completion marker.
+            remote() {
+              ssh -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o ConnectTimeout=30 -o ProxyCommand="cloudflared access ssh --hostname ssh.bmball.com" -n "$VPS_USER@ssh.bmball.com" "$1"
+            }
+
+            echo "Launching detached build on host..."
+            # The launch connection is expected to drop; the build outlives it.
+            remote "cd $VPS_PROJECT_PATH && git pull origin main && rm -f deploy.log deploy.done && (setsid sh -c 'docker compose -f docker-compose.prod.yml up -d --build; echo \$? > deploy.done; docker image prune -f || true' > deploy.log 2>&1 < /dev/null &) ; exit 0" || echo "launch connection dropped, continuing"
+
+            # Stream the host build log as it grows. Each poll already has a
+            # connection, so use it to show real output rather than a counter:
+            # a stalled build should look different from a slow one.
+            echo "Streaming build output from host..."
+            STATUS=""
+            OFFSET=1
+            for i in $(seq 1 120); do
+              remote "tail -c +$OFFSET $VPS_PROJECT_PATH/deploy.log 2>/dev/null" > /tmp/chunk || true
+              if [ -s /tmp/chunk ]; then
+                cat /tmp/chunk
+                OFFSET=$((OFFSET + $(wc -c < /tmp/chunk)))
+              fi
+
+              remote "cat $VPS_PROJECT_PATH/deploy.done 2>/dev/null" > /tmp/done 2>/dev/null || true
+              STATUS=$(tr -d "[:space:]" < /tmp/done 2>/dev/null || echo "")
+              [ -n "$STATUS" ] && break
+
+              sleep 15
+            done
+
+            # Catch anything written between the last poll and completion.
+            remote "tail -c +$OFFSET $VPS_PROJECT_PATH/deploy.log 2>/dev/null" || true
+
+            if [ -z "$STATUS" ]; then echo "Timed out waiting for the build."; exit 1; fi
+            echo "Remote build exit status: $STATUS"
+            [ "$STATUS" = "0" ] || exit 1
+
+workflows:
+  pipeline:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only:
+                - main
+                - /^.*/   # build on every branch, deploy only on main
+      - deploy:
+          requires:
+            - build
+          filters:
+            branches:
+              only: main

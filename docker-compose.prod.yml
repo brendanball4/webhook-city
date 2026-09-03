@@ -11,8 +11,7 @@ services:
       dockerfile: Dockerfile
     container_name: webhookcity-api
     restart: unless-stopped
-    env_file:
-      - .env
+    # Compose loads ./.env automatically for the ${...} substitutions below.
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-webhookcity};Username=${POSTGRES_USER:-webhookcity};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"

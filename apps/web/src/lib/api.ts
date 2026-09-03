@@ -1,7 +1,35 @@
 // Thin client for the Webhook City API.
 
+import {
+  getAccessToken,
+  setAccessToken,
+  notifySessionEnded,
+} from "./authToken";
+
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+
+export type ProjectRole = "Owner" | "Editor" | "Viewer";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  displayName: string | null;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  expiresInSeconds: number;
+  user: AuthUser;
+}
+
+export interface ProjectMember {
+  userId: string;
+  email: string;
+  displayName: string | null;
+  role: ProjectRole;
+  createdAt: string;
+}
 
 export type ProjectCapability = "Webhooks" | "Logs" | "Both";
 
@@ -23,6 +51,7 @@ export interface Project {
   slug: string;
   capability: ProjectCapability;
   groupId: string | null;
+  role: ProjectRole;
   createdAt: string;
   endpointCount: number;
 }
@@ -32,7 +61,8 @@ export interface Endpoint {
   slug: string;
   source: string;
   kind: EventKind;
-  secretToken: string;
+  /** Null for Viewers — only owners and editors receive the ingest secret. */
+  secretToken: string | null;
   createdAt: string;
   ingestPath: string;
 }
@@ -43,6 +73,7 @@ export interface ProjectDetail {
   slug: string;
   capability: ProjectCapability;
   groupId: string | null;
+  role: ProjectRole;
   createdAt: string;
   endpoints: Endpoint[];
 }
@@ -83,12 +114,61 @@ export interface SlackIntegration {
   enabled: boolean;
 }
 
-async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+/** Endpoints that must not trigger the refresh-and-retry loop. */
+const AUTH_PATHS = ["/api/auth/refresh", "/api/auth/login", "/api/auth/register"];
+
+function send(path: string, init?: RequestInit) {
+  const token = getAccessToken();
+  return fetch(`${API_BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
+    // Sends the httpOnly refresh cookie.
+    credentials: "include",
     cache: "no-store",
   });
+}
+
+// A single in-flight refresh is shared, so N concurrent 401s cause one refresh.
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  refreshInFlight ??= (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) return false;
+      const data = (await res.json()) as AuthResponse;
+      setAccessToken(data.accessToken);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+
+  return refreshInFlight;
+}
+
+async function http<T>(path: string, init?: RequestInit): Promise<T> {
+  let res = await send(path, init);
+
+  // Access tokens are short-lived: on 401, silently refresh once and retry.
+  if (res.status === 401 && !AUTH_PATHS.includes(path)) {
+    if (await refreshAccessToken()) {
+      res = await send(path, init);
+    } else {
+      notifySessionEnded();
+    }
+  }
+
   if (!res.ok) {
     throw new Error(`API ${res.status}: ${await res.text()}`);
   }
@@ -100,6 +180,42 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  register: (email: string, password: string, displayName?: string) =>
+    http<AuthResponse>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password, displayName }),
+    }),
+
+  login: (email: string, password: string) =>
+    http<AuthResponse>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+
+  logout: () => http<void>("/api/auth/logout", { method: "POST" }),
+
+  me: () => http<AuthUser>("/api/auth/me"),
+
+  listMembers: (projectSlug: string) =>
+    http<ProjectMember[]>(`/api/projects/${projectSlug}/members`),
+
+  shareProject: (projectSlug: string, email: string, role: ProjectRole) =>
+    http<ProjectMember>(`/api/projects/${projectSlug}/members`, {
+      method: "POST",
+      body: JSON.stringify({ email, role }),
+    }),
+
+  updateMemberRole: (projectSlug: string, userId: string, role: ProjectRole) =>
+    http<ProjectMember>(`/api/projects/${projectSlug}/members/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify({ role }),
+    }),
+
+  removeMember: (projectSlug: string, userId: string) =>
+    http<void>(`/api/projects/${projectSlug}/members/${userId}`, {
+      method: "DELETE",
+    }),
+
   listProjects: () => http<Project[]>("/api/projects"),
 
   getProject: (slug: string) =>

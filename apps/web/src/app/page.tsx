@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, Plus } from "lucide-react";
+import { AlertCircle, Plus, Users2 } from "lucide-react";
 import {
   api,
   type Project,
@@ -10,6 +10,8 @@ import {
 } from "@/lib/api";
 import { CAPABILITY_META } from "@/components/CapabilityBadge";
 import { GroupSection } from "@/components/GroupSection";
+import { ProjectCard } from "@/components/ProjectCard";
+import { partitionProjects } from "@/lib/projects";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -119,7 +121,10 @@ export default function HomePage() {
     }
   }
 
-  const ungrouped = projects.filter((project) => !project.groupId);
+  // Only own projects belong in the group tree — shared ones live under
+  // someone else's groups and would otherwise disappear entirely.
+  const { owned, shared } = partitionProjects(projects);
+  const ungrouped = owned.filter((project) => !project.groupId);
 
   return (
       <main className="mx-auto w-full max-w-7xl space-y-10 px-5 py-8 sm:px-6 lg:py-12">
@@ -272,12 +277,30 @@ export default function HomePage() {
                   key={group.id}
                   group={group}
                   groups={groups}
-                  projects={projects}
+                  projects={owned}
                   onChange={load}
                 />
               ))}
               {ungrouped.length > 0 && (
                 <GroupSection group={null} groups={groups} projects={ungrouped} onChange={load} />
+              )}
+
+              {shared.length > 0 && (
+                <section className="space-y-4">
+                  <div className="flex min-h-9 items-center gap-2">
+                    <Users2 className="size-4 text-muted-foreground" />
+                    <h2 className="font-heading text-sm font-semibold uppercase tracking-wider">
+                      Shared with me
+                    </h2>
+                  </div>
+                  <ul className="grid gap-3 sm:grid-cols-2">
+                    {shared.map((project) => (
+                      <li key={project.id}>
+                        <ProjectCard project={project} />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               )}
             </div>
           )}

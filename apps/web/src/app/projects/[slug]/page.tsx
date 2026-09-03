@@ -1,16 +1,34 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AlertCircle, ArrowLeft, Trash2 } from "lucide-react";
 import { api, type ProjectDetail, type Group } from "@/lib/api";
-import { Header } from "@/components/Header";
 import { EndpointsPanel } from "@/components/EndpointsPanel";
 import { LiveFeed } from "@/components/LiveFeed";
 import { CapabilityBadge } from "@/components/CapabilityBadge";
 import { LogStoragePanel } from "@/components/LogStoragePanel";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { StatusBoard } from "@/components/StatusBoard";
+import { SlackPanel } from "@/components/SlackPanel";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const NO_GROUP = "no-group";
+
+function groupPath(group: Group, groups: Group[]): string {
+  const parent = groups.find((candidate) => candidate.id === group.parentId);
+  return parent ? `${groupPath(parent, groups)} / ${group.name}` : group.name;
+}
 
 export default function ProjectPage({
   params,
@@ -29,74 +47,123 @@ export default function ProjectPage({
     router.push("/");
   }
 
-  async function changeGroup(groupId: string) {
-    await api.setProjectGroup(slug, groupId || null);
-    reload();
+  async function changeGroup(groupId: string | null) {
+    await api.setProjectGroup(slug, groupId === NO_GROUP ? null : groupId);
+    void reload();
   }
 
-  const reload = useCallback(() => {
+  function reload() {
     return api
       .getProject(slug)
       .then(setProject)
-      .catch((e) => setError((e as Error).message));
-  }, [slug]);
+      .catch((reason) => setError((reason as Error).message));
+  }
 
   useEffect(() => {
-    reload();
-    api.listGroups().then(setGroups).catch(() => {});
-  }, [reload]);
+    let active = true;
+
+    api
+      .getProject(slug)
+      .then((value) => {
+        if (active) setProject(value);
+      })
+      .catch((reason) => {
+        if (active) setError((reason as Error).message);
+      });
+    api
+      .listGroups()
+      .then((value) => {
+        if (active) setGroups(value);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [slug]);
 
   return (
-    <>
-      <Header />
-      <main className="mx-auto max-w-5xl px-6 py-8 w-full">
-        <Link href="/" className="text-muted text-sm hover:text-foreground">
-          ← All projects
+      <main className="mx-auto w-full max-w-7xl space-y-8 px-5 py-6 sm:px-6 lg:py-8">
+        <Link href="/" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+          <ArrowLeft data-icon="inline-start" />
+          All projects
         </Link>
 
         {error && (
-          <p className="mt-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-rose-300 text-sm">
-            {error}
-          </p>
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertTitle>Could not load project</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {!project ? (
-          <p className="text-muted mt-6">Loading…</p>
+          <div className="space-y-5">
+            <Skeleton className="h-12 w-72" />
+            <Skeleton className="h-40 w-full" />
+          </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 mt-2 mb-6">
-              <h1 className="text-2xl font-semibold">{project.name}</h1>
-              <CapabilityBadge capability={project.capability} />
-              <select
-                value={project.groupId ?? ""}
-                onChange={(e) => changeGroup(e.target.value)}
-                title="Group"
-                className="rounded-md border border-border bg-surface px-2 py-1 text-sm"
-              >
-                <option value="">No group</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setConfirmingDelete(true)}
-                className="ml-auto rounded-lg border border-rose-500/40 px-3 py-1.5 text-sm text-rose-300 hover:bg-rose-500/10"
-              >
-                Delete project
-              </button>
-            </div>
+            <section className="flex flex-col gap-5 border-b pb-7 lg:flex-row lg:items-end">
+              <div className="min-w-0 flex-1 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                  Project
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
+                    {project.name}
+                  </h1>
+                  <CapabilityBadge capability={project.capability} />
+                </div>
+                <p className="font-mono text-xs text-muted-foreground">
+                  /{project.slug}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Select
+                  value={project.groupId ?? NO_GROUP}
+                  onValueChange={(value) => value && void changeGroup(value)}
+                >
+                  <SelectTrigger aria-label="Project group">
+                    <SelectValue>
+                      {project.groupId
+                        ? (() => {
+                            const selected = groups.find((group) => group.id === project.groupId);
+                            return selected ? groupPath(selected, groups) : "Loading group";
+                          })()
+                        : "No group"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_GROUP}>No group</SelectItem>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {groupPath(group, groups)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="destructive"
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  <Trash2 data-icon="inline-start" />
+                  Delete project
+                </Button>
+              </div>
+            </section>
+
             <StatusBoard projectSlug={project.slug} />
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-              <div className="grid gap-6 content-start">
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(22rem,0.8fr)_minmax(0,1.7fr)]">
+              <div className="grid content-start gap-6">
                 <EndpointsPanel
                   projectSlug={project.slug}
                   initial={project.endpoints}
                   capability={project.capability}
                   onChange={reload}
                 />
+                <SlackPanel projectSlug={project.slug} />
                 {project.capability !== "Webhooks" && (
                   <LogStoragePanel projectSlug={project.slug} />
                 )}
@@ -112,10 +179,8 @@ export default function ProjectPage({
                 title={`Delete “${project.name}”?`}
                 message={
                   <>
-                    This permanently deletes the project, its{" "}
-                    {project.endpoints.length} endpoint
-                    {project.endpoints.length === 1 ? "" : "s"}, and all stored
-                    events. This cannot be undone.
+                    This permanently deletes the project, its {project.endpoints.length} endpoint
+                    {project.endpoints.length === 1 ? "" : "s"}, and all stored events.
                   </>
                 }
                 confirmLabel="Delete project"
@@ -126,6 +191,5 @@ export default function ProjectPage({
           </>
         )}
       </main>
-    </>
   );
 }

@@ -173,12 +173,19 @@ function EndpointItem({
         copied={copied === "url"}
         onCopy={() => copy(url, "url")}
       />
-      <CredentialRow
-        label="Secret"
-        value={endpoint.secretToken}
-        copied={copied === "secret"}
-        onCopy={() => copy(endpoint.secretToken, "secret")}
-      />
+      {/* Viewers are not sent the secret, so there is nothing to render. */}
+      {endpoint.secretToken ? (
+        <CredentialRow
+          label="Secret"
+          value={endpoint.secretToken}
+          copied={copied === "secret"}
+          onCopy={() => copy(endpoint.secretToken!, "secret")}
+        />
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Secret hidden — only owners and editors can view it.
+        </p>
+      )}
       {endpoint.source === "xcode-cloud" && (
         <p className="text-xs leading-relaxed text-muted-foreground">
           Use the payload URL and secret in App Store Connect. Apple signs each

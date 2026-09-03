@@ -19,8 +19,9 @@ services:
       Jwt__Key: ${JWT_KEY:?JWT_KEY is required}
       Jwt__AccessTokenMinutes: ${JWT_ACCESS_MINUTES:-15}
       Jwt__RefreshTokenDays: ${JWT_REFRESH_DAYS:-30}
-      # "None" lets a Netlify-hosted frontend keep the refresh cookie.
-      Jwt__CookieSameSite: ${JWT_COOKIE_SAMESITE:-None}
+      # Lax when the frontend shares the API's registrable domain; None only
+      # if it lives on a different domain (see .env.dist).
+      Jwt__CookieSameSite: ${JWT_COOKIE_SAMESITE:-Lax}
       # TLS is terminated by the tunnel/proxy in front of Kestrel.
       Jwt__CookieSecure: ${JWT_COOKIE_SECURE:-true}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}

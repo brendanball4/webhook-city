@@ -131,11 +131,17 @@ Two settings must agree or sign-in will fail:
 
 1. **`CORS_ORIGINS`** (Pi `.env`) must list the Netlify origin exactly — scheme
    included, no trailing slash.
-2. **Cookie `SameSite`.** Netlify and the Pi are different sites, so the refresh
-   cookie ships as `SameSite=None; Secure` (`JWT_COOKIE_SAMESITE=None`). This
-   requires the API to be served over **HTTPS** — a plain-HTTP API will have the
-   cookie dropped by the browser and users will appear signed out on refresh.
-   If you later serve both from one domain, set `JWT_COOKIE_SAMESITE=Lax`.
+2. **Cookie `SameSite`.** Give the Netlify site a custom domain on the same
+   registrable domain as the API (e.g. `webhookcity.bmball.com` +
+   `webhooks-api.bmball.com`). They are then *same-site*, so the refresh cookie
+   can use `SameSite=Lax` — stricter, and immune to the third-party-cookie
+   blocking that Safari and Chrome apply to `SameSite=None`.
+
+   If the frontend stays on a raw `*.netlify.app` URL it is a *different* site,
+   and you must set `JWT_COOKIE_SAMESITE=None`. That works today but degrades as
+   browsers tighten third-party cookies — users appear randomly signed out.
+
+   Either way the API must be served over **HTTPS**, since the cookie is `Secure`.
 
 The ingest endpoints (`/ingest/...`) are public by design and need no CORS entry —
 external services post to them server-side using the per-endpoint secret.

@@ -1,24 +1,49 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertCircle, Plus } from "lucide-react";
 import {
   api,
   type Project,
   type Group,
   type ProjectCapability,
 } from "@/lib/api";
-import { Header } from "@/components/Header";
 import { CAPABILITY_META } from "@/components/CapabilityBadge";
 import { GroupSection } from "@/components/GroupSection";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const CAPABILITY_OPTIONS: ProjectCapability[] = ["Webhooks", "Logs", "Both"];
+const UNGROUPED = "ungrouped";
+
+function groupPath(group: Group, groups: Group[]): string {
+  const parent = groups.find((candidate) => candidate.id === group.parentId);
+  return parent ? `${groupPath(parent, groups)} / ${group.name}` : group.name;
+}
 
 export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [name, setName] = useState("");
   const [capability, setCapability] = useState<ProjectCapability>("Both");
-  const [groupId, setGroupId] = useState<string>(""); // "" = no group
+  const [groupId, setGroupId] = useState(UNGROUPED);
   const [newGroupName, setNewGroupName] = useState("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -26,35 +51,57 @@ export default function HomePage() {
 
   async function load() {
     try {
-      const [ps, gs] = await Promise.all([
+      const [projectData, groupData] = await Promise.all([
         api.listProjects(),
         api.listGroups(),
       ]);
-      setProjects(ps);
-      setGroups(gs);
+      setProjects(projectData);
+      setGroups(groupData);
       setError(null);
-    } catch (e) {
-      setError((e as Error).message);
+    } catch (reason) {
+      setError((reason as Error).message);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    let active = true;
+
+    Promise.all([api.listProjects(), api.listGroups()])
+      .then(([projectData, groupData]) => {
+        if (!active) return;
+        setProjects(projectData);
+        setGroups(groupData);
+        setError(null);
+      })
+      .catch((reason) => {
+        if (active) setError((reason as Error).message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
+  async function create(event: React.FormEvent) {
+    event.preventDefault();
     if (!name.trim()) return;
     setCreating(true);
     try {
-      await api.createProject(name.trim(), capability, groupId || null);
+      await api.createProject(
+        name.trim(),
+        capability,
+        groupId === UNGROUPED ? null : groupId,
+      );
       setName("");
       setCapability("Both");
       await load();
-    } catch (e) {
-      setError((e as Error).message);
+    } catch (reason) {
+      setError((reason as Error).message);
     } finally {
       setCreating(false);
     }
@@ -63,140 +110,178 @@ export default function HomePage() {
   async function addGroup() {
     if (!newGroupName.trim()) return;
     try {
-      const g = await api.createGroup(newGroupName.trim());
+      const group = await api.createGroup(newGroupName.trim());
       setNewGroupName("");
-      setGroupId(g.id); // select the new group for the next project
+      setGroupId(group.id);
       await load();
-    } catch (e) {
-      setError((e as Error).message);
+    } catch (reason) {
+      setError((reason as Error).message);
     }
   }
 
-  // Projects bucketed by group, groups ordered as returned (by name).
-  const ungrouped = projects.filter((p) => !p.groupId);
+  const ungrouped = projects.filter((project) => !project.groupId);
 
   return (
-    <>
-      <Header />
-      <main className="mx-auto max-w-5xl px-6 py-8 w-full">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold">Projects</h1>
+      <main className="mx-auto w-full max-w-7xl space-y-10 px-5 py-8 sm:px-6 lg:py-12">
+        <div className="max-w-2xl space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+            Operations
+          </div>
+          <h1 className="font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
+            Projects
+          </h1>
+          <p className="text-base leading-relaxed text-muted-foreground">
+            Receive, inspect, and route events from every service in one place.
+          </p>
         </div>
 
-        <form
-          onSubmit={create}
-          className="mb-8 rounded-xl border border-border bg-surface p-5"
-        >
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="New project name…"
-            className="w-full rounded-lg border border-border bg-background px-4 py-2 outline-none focus:border-accent mb-4"
-          />
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>New project</CardTitle>
+            <CardDescription>
+              Create an isolated workspace with its own endpoints and event history.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={create} className="grid gap-8 lg:grid-cols-[1fr_1.4fr]">
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="project-name">Project name</Label>
+                  <Input
+                    id="project-name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="HerdScan"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Group</Label>
+                  <Select value={groupId} onValueChange={(value) => value && setGroupId(value)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue>
+                        {groupId === UNGROUPED
+                          ? "No group"
+                          : (() => {
+                              const selected = groups.find((group) => group.id === groupId);
+                              return selected ? groupPath(selected, groups) : "Select group";
+                            })()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UNGROUPED}>No group</SelectItem>
+                      {groups.map((group) => (
+                        <SelectItem key={group.id} value={group.id}>
+                          {groupPath(group, groups)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    value={newGroupName}
+                    onChange={(event) => setNewGroupName(event.target.value)}
+                    placeholder="New group"
+                    aria-label="New group name"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void addGroup();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addGroup}
+                    disabled={!newGroupName.trim()}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
 
-          <div className="text-sm text-muted mb-2">
-            What will it collect?{" "}
-            <span className="text-muted/70">
-              You can add the other type later, anytime.
-            </span>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-3 mb-4">
-            {CAPABILITY_OPTIONS.map((cap) => {
-              const meta = CAPABILITY_META[cap];
-              const selected = capability === cap;
-              return (
-                <button
-                  type="button"
-                  key={cap}
-                  onClick={() => setCapability(cap)}
-                  className={`text-left rounded-lg border p-3 transition-colors ${
-                    selected
-                      ? "border-accent bg-accent/10"
-                      : "border-border bg-background hover:border-muted"
-                  }`}
-                >
-                  <div className="font-medium flex items-center gap-1.5">
-                    <span>{meta.icon}</span>
-                    {meta.label}
-                  </div>
-                  <div className="text-xs text-muted mt-1">{meta.blurb}</div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <label className="text-sm text-muted">Group:</label>
-            <select
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value)}
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-            >
-              <option value="">No group</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-            <span className="text-muted text-sm">or</span>
-            <input
-              value={newGroupName}
-              onChange={(e) => setNewGroupName(e.target.value)}
-              placeholder="New group name…"
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addGroup();
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={addGroup}
-              disabled={!newGroupName.trim()}
-              className="text-sm rounded-md border border-border px-3 py-1.5 hover:bg-surface-2 disabled:opacity-50"
-            >
-              Add group
-            </button>
-          </div>
-
-          <button
-            type="submit"
-            disabled={creating || !name.trim()}
-            className="rounded-lg bg-accent px-4 py-2 font-medium text-white disabled:opacity-50"
-          >
-            {creating ? "Creating…" : "Create project"}
-          </button>
-        </form>
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label>Collection type</Label>
+                  <p className="text-sm text-muted-foreground">
+                    This can expand later without changing the project URL.
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {CAPABILITY_OPTIONS.map((option) => {
+                    const meta = CAPABILITY_META[option];
+                    const Icon = meta.icon;
+                    const selected = capability === option;
+                    return (
+                      <Button
+                        type="button"
+                        key={option}
+                        variant={selected ? "default" : "outline"}
+                        onClick={() => setCapability(option)}
+                        className="h-auto min-h-28 items-start justify-start whitespace-normal px-4 py-4 text-left normal-case tracking-normal"
+                      >
+                        <span className="space-y-2">
+                          <span className="flex items-center gap-2 font-heading text-sm font-semibold uppercase tracking-wider">
+                            <Icon className="size-4" />
+                            {meta.label}
+                          </span>
+                          <span className={`block text-xs leading-relaxed ${selected ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
+                            {meta.blurb}
+                          </span>
+                        </span>
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button type="submit" disabled={creating || !name.trim()}>
+                  <Plus data-icon="inline-start" />
+                  {creating ? "Creating…" : "Create project"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
         {error && (
-          <p className="mb-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-rose-300 text-sm">
-            {error}
-          </p>
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertTitle>Could not load projects</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
-        {loading ? (
-          <p className="text-muted">Loading…</p>
-        ) : projects.length === 0 && groups.length === 0 ? (
-          <p className="text-muted">No projects yet. Create one above.</p>
-        ) : (
-          <>
-            {groups.map((g) => (
-              <GroupSection
-                key={g.id}
-                group={g}
-                projects={projects.filter((p) => p.groupId === g.id)}
-                onChange={load}
-              />
-            ))}
-            {ungrouped.length > 0 && (
-              <GroupSection group={null} projects={ungrouped} onChange={load} />
-            )}
-          </>
-        )}
+        <section className="space-y-8">
+          <h2 className="font-heading text-xl font-semibold uppercase tracking-wider">
+            Workspace
+          </h2>
+
+          {loading ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+            </div>
+          ) : projects.length === 0 && groups.length === 0 ? (
+            <p className="border border-dashed px-6 py-12 text-center text-muted-foreground">
+              No projects yet. Create the first one above.
+            </p>
+          ) : (
+            <div className="space-y-10">
+              {groups.filter((group) => !group.parentId).map((group) => (
+                <GroupSection
+                  key={group.id}
+                  group={group}
+                  groups={groups}
+                  projects={projects}
+                  onChange={load}
+                />
+              ))}
+              {ungrouped.length > 0 && (
+                <GroupSection group={null} groups={groups} projects={ungrouped} onChange={load} />
+              )}
+            </div>
+          )}
+        </section>
       </main>
-    </>
   );
 }

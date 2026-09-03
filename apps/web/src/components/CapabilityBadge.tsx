@@ -1,22 +1,24 @@
 import { type ProjectCapability } from "@/lib/api";
+import { Layers3, ScrollText, Webhook, type LucideIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export const CAPABILITY_META: Record<
   ProjectCapability,
-  { label: string; icon: string; blurb: string }
+  { label: string; icon: LucideIcon; blurb: string }
 > = {
   Webhooks: {
     label: "Webhooks",
-    icon: "🪝",
+    icon: Webhook,
     blurb: "Receive webhook events at public ingest URLs.",
   },
   Logs: {
     label: "Log storage",
-    icon: "📜",
+    icon: ScrollText,
     blurb: "Pipe logs from your own services.",
   },
   Both: {
     label: "Both",
-    icon: "⚡",
+    icon: Layers3,
     blurb: "Webhooks and log storage together.",
   },
 };
@@ -27,10 +29,11 @@ export function CapabilityBadge({
   capability: ProjectCapability;
 }) {
   const meta = CAPABILITY_META[capability];
+  const Icon = meta.icon;
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
-      <span>{meta.icon}</span>
+    <Badge variant="secondary">
+      <Icon data-icon="inline-start" />
       {meta.label}
-    </span>
+    </Badge>
   );
 }

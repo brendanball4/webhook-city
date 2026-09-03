@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-/**
- * Reusable "are you sure?" modal for destructive actions.
- * Handles its own busy state while the async `onConfirm` runs.
- */
 export function ConfirmModal({
   title,
   message,
@@ -31,33 +36,21 @@ export function ConfirmModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={busy ? undefined : onCancel}
-    >
-      <div
-        className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold mb-2">{title}</h2>
-        <div className="text-sm text-muted mb-6">{message}</div>
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            disabled={busy}
-            className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface-2 disabled:opacity-50"
-          >
+    <Dialog open onOpenChange={(open) => !open && !busy && onCancel()}>
+      <DialogContent showCloseButton={!busy}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription render={<div />}>{message}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel} disabled={busy}>
             Cancel
-          </button>
-          <button
-            onClick={confirm}
-            disabled={busy}
-            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-500 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="destructive" onClick={confirm} disabled={busy}>
             {busy ? "Deleting…" : confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

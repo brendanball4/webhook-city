@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Folder, Gauge, RadioTower, Settings, UserRound } from "lucide-react";
+import { ChevronRight, Folder, Gauge, RadioTower, Settings, UserRound, LogOut } from "lucide-react";
 import { api, type Group, type Project } from "@/lib/api";
 import {
   Sidebar,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useAuth } from "./AuthProvider";
 
 function ProjectLink({ project, pathname }: { project: Project; pathname: string }) {
   const href = `/projects/${project.slug}`;
@@ -90,6 +91,7 @@ function GroupTree({
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
 
@@ -198,12 +200,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Local workspace" render={<Link href="/settings" />}>
+                <SidebarMenuButton tooltip={user?.email ?? "Account"} render={<Link href="/settings" />}>
                   <UserRound />
                   <span className="flex min-w-0 flex-col items-start leading-tight">
-                    <span className="truncate">Local workspace</span>
-                    <span className="truncate text-[10px] text-muted-foreground">Authentication disabled</span>
+                    <span className="truncate">{user?.displayName ?? user?.email ?? "Account"}</span>
+                    {user?.displayName && (
+                      <span className="truncate text-[10px] text-muted-foreground">
+                        {user.email}
+                      </span>
+                    )}
                   </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip="Sign out" onClick={logout}>
+                  <LogOut />
+                  <span>Sign out</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

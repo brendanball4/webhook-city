@@ -18,7 +18,7 @@ namespace WebhookCity.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.28")
+                .HasAnnotation("ProductVersion", "8.0.30")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -129,11 +129,16 @@ namespace WebhookCity.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ParentId");
 
                     b.HasIndex("Slug")
                         .IsUnique();
@@ -161,6 +166,12 @@ namespace WebhookCity.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("SlackNotificationsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SlackWebhookUrl")
+                        .HasColumnType("text");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
@@ -173,6 +184,44 @@ namespace WebhookCity.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Projects");
+                });
+
+            modelBuilder.Entity("WebhookCity.Api.Models.SlackDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "NextAttemptAt");
+
+                    b.ToTable("SlackDeliveries");
                 });
 
             modelBuilder.Entity("WebhookCity.Api.Models.Endpoint", b =>
@@ -205,6 +254,16 @@ namespace WebhookCity.Api.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("WebhookCity.Api.Models.Group", b =>
+                {
+                    b.HasOne("WebhookCity.Api.Models.Group", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Parent");
+                });
+
             modelBuilder.Entity("WebhookCity.Api.Models.Project", b =>
                 {
                     b.HasOne("WebhookCity.Api.Models.Group", "Group")
@@ -215,6 +274,17 @@ namespace WebhookCity.Api.Migrations
                     b.Navigation("Group");
                 });
 
+            modelBuilder.Entity("WebhookCity.Api.Models.SlackDelivery", b =>
+                {
+                    b.HasOne("WebhookCity.Api.Models.Event", "Event")
+                        .WithOne()
+                        .HasForeignKey("WebhookCity.Api.Models.SlackDelivery", "EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
             modelBuilder.Entity("WebhookCity.Api.Models.Endpoint", b =>
                 {
                     b.Navigation("Events");
@@ -222,6 +292,8 @@ namespace WebhookCity.Api.Migrations
 
             modelBuilder.Entity("WebhookCity.Api.Models.Group", b =>
                 {
+                    b.Navigation("Children");
+
                     b.Navigation("Projects");
                 });
 

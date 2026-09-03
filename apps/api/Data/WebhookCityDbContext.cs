@@ -15,6 +15,7 @@ public class WebhookCityDbContext : DbContext
     public DbSet<Endpoint> Endpoints => Set<Endpoint>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<Group> Groups => Set<Group>();
+    public DbSet<SlackDelivery> SlackDeliveries => Set<SlackDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,6 +47,11 @@ public class WebhookCityDbContext : DbContext
             entity.HasIndex(g => g.Slug).IsUnique();
             entity.Property(g => g.Name).IsRequired();
             entity.Property(g => g.Slug).IsRequired();
+
+            entity.HasOne(g => g.Parent)
+                .WithMany(g => g.Children)
+                .HasForeignKey(g => g.ParentId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Endpoint>(entity =>
@@ -92,6 +98,19 @@ public class WebhookCityDbContext : DbContext
             entity.HasOne(e => e.Project)
                 .WithMany(p => p.Events)
                 .HasForeignKey(e => e.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SlackDelivery>(entity =>
+        {
+            entity.HasKey(d => d.Id);
+            entity.HasIndex(d => d.EventId).IsUnique();
+            entity.HasIndex(d => new { d.Status, d.NextAttemptAt });
+            entity.Property(d => d.Status).IsRequired();
+
+            entity.HasOne(d => d.Event)
+                .WithOne()
+                .HasForeignKey<SlackDelivery>(d => d.EventId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

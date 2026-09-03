@@ -77,3 +77,65 @@ dotnet ef migrations add <Name>
 ```
 
 Migrations are applied automatically on startup; no manual `database update` needed.
+
+---
+
+## Deployment
+
+The backend runs on the Raspberry Pi; the frontend is hosted on Netlify.
+
+### Backend → Raspberry Pi (CircleCI)
+
+Auto-deploys on every push to `main`. CircleCI builds the project, then SSHes to
+the Pi through a Cloudflare tunnel and has **the Pi build the image itself**
+(avoiding ARM cross-compilation), streaming the build log back.
+
+**One-time setup on the Pi**
+
+```bash
+git clone <this repo> ~/webhook-city
+cd ~/webhook-city
+cp .env.dist .env
+nano .env            # fill in POSTGRES_PASSWORD, JWT_KEY, CORS_ORIGINS
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Generate the secrets with `openssl rand -base64 48`.
+
+**One-time setup in CircleCI** — project environment variables:
+
+| Variable | Meaning |
+|---|---|
+| `SSH_FINGERPRINT` | Fingerprint of the deploy key added to the project |
+| `VPS_USER` | SSH user on the Pi |
+| `VPS_PROJECT_PATH` | Path to the clone, e.g. `/home/pi/webhook-city` |
+
+**Ports.** The API publishes host port `API_PORT` (default **5001**) — the
+invoicer API already owns 5000. Postgres is deliberately **not** published: only
+the API container reaches it, so it cannot collide with the existing 5432.
+
+### Frontend → Netlify
+
+`netlify.toml` builds from `apps/web`. Set one environment variable in the
+Netlify UI:
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | Public URL of the API, no trailing slash |
+
+It is baked into the client bundle at build time, so changing it needs a redeploy.
+
+### Wiring the two together
+
+Two settings must agree or sign-in will fail:
+
+1. **`CORS_ORIGINS`** (Pi `.env`) must list the Netlify origin exactly — scheme
+   included, no trailing slash.
+2. **Cookie `SameSite`.** Netlify and the Pi are different sites, so the refresh
+   cookie ships as `SameSite=None; Secure` (`JWT_COOKIE_SAMESITE=None`). This
+   requires the API to be served over **HTTPS** — a plain-HTTP API will have the
+   cookie dropped by the browser and users will appear signed out on refresh.
+   If you later serve both from one domain, set `JWT_COOKIE_SAMESITE=Lax`.
+
+The ingest endpoints (`/ingest/...`) are public by design and need no CORS entry —
+external services post to them server-side using the per-endpoint secret.

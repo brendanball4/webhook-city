@@ -1,27 +1,37 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Activity } from "lucide-react";
 import { api, type EndpointHealth, type Health } from "@/lib/api";
 import { KindBadge } from "./KindBadge";
 import { timeAgo } from "@/lib/relativeTime";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const POLL_MS = 5000;
 
 const HEALTH_META: Record<
   Health,
-  { label: string; dot: string; ring: string }
+  { label: string; dot: string; border: string }
 > = {
-  healthy: { label: "Healthy", dot: "bg-emerald-400", ring: "border-emerald-500/30" },
-  failing: { label: "Failing", dot: "bg-rose-400", ring: "border-rose-500/40" },
-  pending: { label: "Pending", dot: "bg-amber-400", ring: "border-amber-500/30" },
-  active: { label: "Active", dot: "bg-sky-400", ring: "border-sky-500/30" },
-  idle: { label: "Idle", dot: "bg-muted", ring: "border-border" },
+  healthy: { label: "Healthy", dot: "bg-emerald-600", border: "border-l-emerald-600" },
+  failing: { label: "Failing", dot: "bg-destructive", border: "border-l-destructive" },
+  pending: { label: "Pending", dot: "bg-amber-600", border: "border-l-amber-600" },
+  active: { label: "Active", dot: "bg-primary", border: "border-l-primary" },
+  idle: { label: "Idle", dot: "bg-muted-foreground/40", border: "border-l-border" },
 };
 
 const STRIP_COLOR: Record<string, string> = {
-  success: "bg-emerald-400",
-  error: "bg-rose-400",
-  pending: "bg-amber-400",
+  success: "bg-emerald-600",
+  error: "bg-destructive",
+  pending: "bg-amber-600",
 };
 
 export function StatusBoard({ projectSlug }: { projectSlug: string }) {
@@ -34,10 +44,10 @@ export function StatusBoard({ projectSlug }: { projectSlug: string }) {
         const data = await api.getHealth(projectSlug);
         if (active) setHealth(data);
       } catch {
-        /* ignore transient errors */
+        // A transient health request should not interrupt the project page.
       }
     }
-    poll();
+    void poll();
     const id = setInterval(poll, POLL_MS);
     return () => {
       active = false;
@@ -48,59 +58,52 @@ export function StatusBoard({ projectSlug }: { projectSlug: string }) {
   if (health.length === 0) return null;
 
   return (
-    <section className="mb-6">
-      <h2 className="font-medium mb-3">Status board</h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {health.map((h) => {
-          const meta = HEALTH_META[h.health];
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Activity className="size-4 text-muted-foreground" />
+        <h2 className="font-heading text-sm font-semibold uppercase tracking-wider">
+          Endpoint health
+        </h2>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {health.map((item) => {
+          const meta = HEALTH_META[item.health];
           return (
-            <div
-              key={h.endpointId}
-              className={`rounded-xl border bg-surface p-4 ${meta.ring}`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${meta.dot}`} />
-                <span className="font-medium">{h.source}</span>
-                <span className="ml-auto">
-                  <KindBadge kind={h.kind} />
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted">{meta.label}</span>
-                <span className="text-muted">{timeAgo(h.lastSeenAt)}</span>
-              </div>
-
-              {/* Recent events strip (oldest → newest) */}
-              <div className="flex gap-0.5 mt-3 h-4 items-end">
-                {h.recentStatuses.length === 0 ? (
-                  <span className="text-xs text-muted">no events yet</span>
-                ) : (
-                  h.recentStatuses.map((s, i) => (
-                    <span
-                      key={i}
-                      title={s ?? "unknown"}
-                      className={`flex-1 max-w-[10px] h-3 rounded-sm ${
-                        STRIP_COLOR[s ?? ""] ?? "bg-surface-2"
-                      }`}
-                    />
-                  ))
-                )}
-              </div>
-
-              {h.total > 0 && (
-                <div className="text-xs text-muted mt-2">
-                  {h.total} event{h.total === 1 ? "" : "s"} ·{" "}
-                  <span
-                    className={
-                      h.failureRate > 0 ? "text-rose-300" : "text-emerald-300"
-                    }
-                  >
-                    {Math.round(h.failureRate * 100)}% fail
-                  </span>
+            <Card key={item.endpointId} size="sm" className={`border-l-2 ${meta.border}`}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 normal-case tracking-wide">
+                  <span className={`size-2 ${meta.dot}`} />
+                  {item.source}
+                </CardTitle>
+                <CardDescription>{timeAgo(item.lastSeenAt)}</CardDescription>
+                <CardAction>
+                  <KindBadge kind={item.kind} />
+                </CardAction>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Badge variant="secondary">{meta.label}</Badge>
+                  {item.total > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {item.total} event{item.total === 1 ? "" : "s"} / {Math.round(item.failureRate * 100)}% fail
+                    </span>
+                  )}
                 </div>
-              )}
-            </div>
+                <div className="flex h-3 items-end gap-0.5">
+                  {item.recentStatuses.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">No events yet</span>
+                  ) : (
+                    item.recentStatuses.map((status, index) => (
+                      <span
+                        key={index}
+                        title={status ?? "unknown"}
+                        className={`h-2.5 max-w-3 flex-1 ${STRIP_COLOR[status ?? ""] ?? "bg-muted"}`}
+                      />
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           );
         })}
       </div>

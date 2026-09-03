@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Check, Copy, Plus, Trash2 } from "lucide-react";
 import {
   api,
   API_BASE,
@@ -9,8 +10,33 @@ import {
   type ProjectCapability,
 } from "@/lib/api";
 import { KindBadge } from "./KindBadge";
+import { ConfirmModal } from "./ConfirmModal";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
-const SOURCES = ["netlify", "circleci", "github", "stripe", "custom"];
+const SOURCES = [
+  "xcode-cloud",
+  "netlify",
+  "circleci",
+  "github",
+  "stripe",
+  "custom",
+];
 
 export function EndpointsPanel({
   projectSlug,
@@ -33,9 +59,8 @@ export function EndpointsPanel({
   async function add() {
     setAdding(true);
     try {
-      const ep = await api.createEndpoint(projectSlug, source, kind);
-      setEndpoints((prev) => [...prev, ep]);
-      // Adding a new kind may grow the project's capability — refresh the page.
+      const endpoint = await api.createEndpoint(projectSlug, source, kind);
+      setEndpoints((previous) => [...previous, endpoint]);
       onChange?.();
     } finally {
       setAdding(false);
@@ -44,56 +69,65 @@ export function EndpointsPanel({
 
   async function remove(endpoint: Endpoint) {
     await api.deleteEndpoint(projectSlug, endpoint.slug);
-    setEndpoints((prev) => prev.filter((e) => e.id !== endpoint.id));
+    setEndpoints((previous) => previous.filter((item) => item.id !== endpoint.id));
   }
 
   return (
-    <section className="rounded-xl border border-border bg-surface">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="font-medium">Endpoints</h2>
-        <div className="flex gap-2">
-          <select
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Endpoints</CardTitle>
+        <CardDescription>
+          Dedicated authenticated receivers for each external source.
+        </CardDescription>
+        <CardAction className="flex flex-wrap justify-end gap-2">
+          <Select
             value={kind}
-            onChange={(e) => setKind(e.target.value as EventKind)}
-            className="rounded-md border border-border bg-surface-2 px-2 py-1 text-sm"
-            title="Endpoint kind"
+            onValueChange={(value) => value && setKind(value as EventKind)}
           >
-            <option value="Webhook">🪝 Webhook</option>
-            <option value="Log">📜 Log</option>
-          </select>
-          <select
+            <SelectTrigger size="sm" aria-label="Endpoint kind">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Webhook">Webhook</SelectItem>
+              <SelectItem value="Log">Log</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
             value={source}
-            onChange={(e) => setSource(e.target.value)}
-            className="rounded-md border border-border bg-surface-2 px-2 py-1 text-sm"
+            onValueChange={(value) => value && setSource(value)}
           >
-            {SOURCES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={add}
-            disabled={adding}
-            className="text-sm rounded-md bg-accent px-3 py-1 text-white disabled:opacity-50"
-          >
+            <SelectTrigger size="sm" aria-label="Endpoint source">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SOURCES.map((item) => (
+                <SelectItem key={item} value={item}>
+                  {item}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={add} disabled={adding}>
+            <Plus data-icon="inline-start" />
             {adding ? "Adding…" : "Add"}
-          </button>
-        </div>
-      </div>
-
+          </Button>
+        </CardAction>
+      </CardHeader>
       {endpoints.length === 0 ? (
-        <p className="text-muted px-4 py-6 text-sm text-center">
-          No endpoints yet. Add one to get a webhook URL.
-        </p>
+        <CardContent className="py-8 text-center text-muted-foreground">
+          No endpoints yet.
+        </CardContent>
       ) : (
-        <ul className="divide-y divide-border">
-          {endpoints.map((ep) => (
-            <EndpointItem key={ep.id} endpoint={ep} onDelete={() => remove(ep)} />
+        <div>
+          {endpoints.map((endpoint, index) => (
+            <div key={endpoint.id}>
+              {index > 0 && <Separator />}
+              <EndpointItem endpoint={endpoint} onDelete={() => remove(endpoint)} />
+            </div>
           ))}
-        </ul>
+        </div>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -106,7 +140,6 @@ function EndpointItem({
 }) {
   const [copied, setCopied] = useState<"url" | "secret" | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const url = `${API_BASE}${endpoint.ingestPath}`;
 
   function copy(text: string, which: "url" | "secret") {
@@ -115,73 +148,79 @@ function EndpointItem({
     setTimeout(() => setCopied(null), 1500);
   }
 
-  async function confirmDelete() {
-    setDeleting(true);
-    try {
-      await onDelete();
-    } finally {
-      setDeleting(false);
-      setConfirming(false);
-    }
-  }
-
   return (
-    <li className="px-4 py-3">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="font-medium">{endpoint.source}</span>
-        <span className="font-mono text-xs text-muted">/{endpoint.slug}</span>
-        <span className="ml-auto">
-          <KindBadge kind={endpoint.kind} />
-        </span>
-        {confirming ? (
-          <span className="flex items-center gap-1">
-            <button
-              onClick={confirmDelete}
-              disabled={deleting}
-              className="text-xs rounded-md bg-rose-600 px-2 py-1 text-white hover:bg-rose-500 disabled:opacity-50"
-            >
-              {deleting ? "…" : "Confirm"}
-            </button>
-            <button
-              onClick={() => setConfirming(false)}
-              disabled={deleting}
-              className="text-xs rounded-md border border-border px-2 py-1 hover:bg-surface-2"
-            >
-              Cancel
-            </button>
-          </span>
-        ) : (
-          <button
-            onClick={() => setConfirming(true)}
-            title="Delete endpoint"
-            className="text-xs rounded-md border border-border px-2 py-1 text-muted hover:bg-surface-2 hover:text-rose-300"
-          >
-            Delete
-          </button>
-        )}
-      </div>
-      <div className="flex items-center gap-2 mb-1">
-        <code className="flex-1 truncate rounded bg-background border border-border px-2 py-1 text-xs font-mono">
-          {url}
-        </code>
-        <button
-          onClick={() => copy(url, "url")}
-          className="text-xs rounded-md border border-border px-2 py-1 hover:bg-surface-2 shrink-0"
+    <div className="space-y-3 px-5 py-5">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium">{endpoint.source}</div>
+          <div className="truncate font-mono text-xs text-muted-foreground">
+            /{endpoint.slug}
+          </div>
+        </div>
+        <KindBadge kind={endpoint.kind} />
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={() => setConfirming(true)}
+          aria-label={`Delete ${endpoint.source} endpoint`}
         >
-          {copied === "url" ? "Copied!" : "Copy URL"}
-        </button>
+          <Trash2 />
+        </Button>
       </div>
-      <div className="flex items-center gap-2">
-        <code className="flex-1 truncate rounded bg-background border border-border px-2 py-1 text-xs font-mono text-muted">
-          secret: {endpoint.secretToken}
-        </code>
-        <button
-          onClick={() => copy(endpoint.secretToken, "secret")}
-          className="text-xs rounded-md border border-border px-2 py-1 hover:bg-surface-2 shrink-0"
-        >
-          {copied === "secret" ? "Copied!" : "Copy secret"}
-        </button>
+      <CredentialRow
+        label="Payload URL"
+        value={url}
+        copied={copied === "url"}
+        onCopy={() => copy(url, "url")}
+      />
+      <CredentialRow
+        label="Secret"
+        value={endpoint.secretToken}
+        copied={copied === "secret"}
+        onCopy={() => copy(endpoint.secretToken, "secret")}
+      />
+      {endpoint.source === "xcode-cloud" && (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Use the payload URL and secret in App Store Connect. Apple signs each
+          request using the X-Apple-Signature header.
+        </p>
+      )}
+      {confirming && (
+        <ConfirmModal
+          title={`Delete ${endpoint.source} endpoint?`}
+          message="New deliveries to this URL will stop, and its stored events will be deleted."
+          confirmLabel="Delete endpoint"
+          onConfirm={onDelete}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function CredentialRow({
+  label,
+  value,
+  copied,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <div className="text-[0.625rem] font-semibold uppercase tracking-widest text-muted-foreground">
+        {label}
       </div>
-    </li>
+      <div className="flex min-w-0 items-center border bg-muted/40 pl-3">
+        <code className="min-w-0 flex-1 truncate font-mono text-xs">{value}</code>
+        <Button variant="ghost" size="sm" onClick={onCopy}>
+          {copied ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -1,0 +1,54 @@
+# Production stack for the Raspberry Pi. Runs the API and its database only —
+# the Next.js frontend is deployed separately (Netlify).
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Values come from a .env file sitting next to this one (see .env.dist).
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: webhookcity-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-webhookcity};Username=${POSTGRES_USER:-webhookcity};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      # Signing key for access tokens. Must be set; there is no safe default.
+      Jwt__Key: ${JWT_KEY:?JWT_KEY is required}
+      Jwt__AccessTokenMinutes: ${JWT_ACCESS_MINUTES:-15}
+      Jwt__RefreshTokenDays: ${JWT_REFRESH_DAYS:-30}
+      # "None" lets a Netlify-hosted frontend keep the refresh cookie.
+      Jwt__CookieSameSite: ${JWT_COOKIE_SAMESITE:-None}
+      # TLS is terminated by the tunnel/proxy in front of Kestrel.
+      Jwt__CookieSecure: ${JWT_COOKIE_SECURE:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+    ports:
+      # Host port is configurable so it cannot collide with other apps on the Pi.
+      - "${API_PORT:-5001}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: webhookcity-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-webhookcity}
+      POSTGRES_USER: ${POSTGRES_USER:-webhookcity}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    # Deliberately NOT published to the host: only the api container needs it,
+    # and the Pi already has another Postgres on 5432.
+    volumes:
+      - webhookcity_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-webhookcity} -d ${POSTGRES_DB:-webhookcity}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  webhookcity_pgdata:

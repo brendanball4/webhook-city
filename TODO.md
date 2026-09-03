@@ -34,7 +34,9 @@ organizes them into **Projects**, and streams them in **real-time**.
 - [x] Decide backend stack → **ASP.NET Core Web API**
 - [x] Decide frontend → **Next.js + React**
 - [x] Decide database → **PostgreSQL + EF Core**
-- [x] Data model (see below) — UUID PKs · single-user v1 (no auth yet)
+- [x] Data model (see below) — UUID PKs
+- [x] **Auth & multi-tenancy** — email + hashed password (PBKDF2), JWT access + rotating httpOnly refresh token. Projects/groups are owned; first account claimed pre-auth data. `/ingest/*` stays public (secret-protected).
+- [x] **Per-project sharing** — invite by email as Viewer or Editor. Viewers never receive ingest secrets; only owners delete, re-share, or configure Slack.
 - [x] Scaffold C# Web API + EF Core entities + DbContext + InitialCreate migration
 - [x] docker-compose (web + API + Postgres, all containerized), auto-migrate on startup — verified working
 - [x] `POST /ingest/:projectSlug/:endpointSlug` — accepts any JSON payload (non-JSON wrapped)
@@ -140,7 +142,7 @@ events                                 -- the log entries (heavy table)
 - [~] **Alerts/Rules engine** — project-level Slack forwarding is implemented with a durable retry queue; filters and other destinations pending
 - [ ] **API keys** for programmatic log ingestion (your own services pipe logs in)
 - [ ] **Webhook signature verification** presets (Stripe, GitHub HMAC, etc.)
-- [ ] **Multi-tenant / teams** — invite members to a project
+- [x] **Multi-tenant / teams** — per-project sharing with Viewer/Editor roles
 - [ ] **Export** events as JSON/CSV
 
 ### Storage & Scale (the "storage heavy" concern)
@@ -166,7 +168,8 @@ events                                 -- the log entries (heavy table)
 
 - [ ] Self-hosted only, or hosted SaaS later?
 - [ ] Expected event volume? (drives storage + DB choices)
-- [ ] Auth: single-user to start, or teams from day one?
+- [x] Auth: personal accounts + per-project sharing (decided & built)
+- [ ] Password reset / email verification (needs an email provider — deferred)
 
 ---
 

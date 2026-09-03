@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebhookCity.Api.Common;
@@ -12,6 +13,10 @@ namespace WebhookCity.Api.Controllers;
 
 [ApiController]
 [Route("ingest")]
+// PUBLIC BY DESIGN: external services (Netlify, CircleCI, your own apps) POST here
+// with no login. Authorization is the per-endpoint secret, not a user session.
+// Never put [Authorize] on this controller.
+[AllowAnonymous]
 public class IngestController : ControllerBase
 {
     private const int DefaultRetentionDays = 30;

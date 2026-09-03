@@ -38,6 +38,7 @@ public static class Mapping
         g.Name,
         g.Slug,
         g.Color,
+        g.ParentId,
         g.CreatedAt,
         g.Projects?.Count ?? 0);
 

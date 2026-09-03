@@ -19,4 +19,19 @@ public class JwtOptions
 
     /// <summary>Long-lived; delivered as an httpOnly cookie and rotated on use.</summary>
     public int RefreshTokenDays { get; set; } = 30;
+
+    /// <summary>
+    /// SameSite mode for the refresh cookie: "Lax" | "None" | "Strict".
+    /// Use "None" when the frontend and API are on different sites (e.g. a
+    /// Netlify frontend calling an API on your own domain) — browsers drop the
+    /// cookie otherwise. "None" additionally requires the cookie to be Secure,
+    /// so the API must be served over HTTPS.
+    /// </summary>
+    public string CookieSameSite { get; set; } = "Lax";
+
+    /// <summary>
+    /// Force the Secure flag even when the app sees plain HTTP — needed when a
+    /// reverse proxy or Cloudflare tunnel terminates TLS in front of Kestrel.
+    /// </summary>
+    public bool CookieSecure { get; set; }
 }

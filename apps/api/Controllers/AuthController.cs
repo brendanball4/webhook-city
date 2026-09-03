@@ -159,25 +159,37 @@ public class AuthController : ControllerBase
         _options.AccessTokenMinutes * 60,
         new UserResponse(user.Id, user.Email, user.DisplayName));
 
-    private void SetRefreshCookie(string value) =>
-        Response.Cookies.Append(RefreshCookie, value, new CookieOptions
+    /// <summary>
+    /// Cookie flags shared by set and delete — they must match exactly or the
+    /// browser will not replace/remove the existing cookie.
+    /// </summary>
+    private CookieOptions RefreshCookieOptions()
+    {
+        var sameSite = Enum.TryParse<SameSiteMode>(
+            _options.CookieSameSite, ignoreCase: true, out var parsed)
+            ? parsed
+            : SameSiteMode.Lax;
+
+        return new CookieOptions
         {
             HttpOnly = true,
-            Secure = Request.IsHttps,
-            SameSite = SameSiteMode.Lax,
+            // SameSite=None is only honoured on a Secure cookie.
+            Secure = _options.CookieSecure || Request.IsHttps || sameSite == SameSiteMode.None,
+            SameSite = sameSite,
             // Only ever sent to the auth endpoints that need it.
             Path = "/api/auth",
-            Expires = DateTimeOffset.UtcNow.AddDays(_options.RefreshTokenDays),
-        });
+        };
+    }
+
+    private void SetRefreshCookie(string value)
+    {
+        var options = RefreshCookieOptions();
+        options.Expires = DateTimeOffset.UtcNow.AddDays(_options.RefreshTokenDays);
+        Response.Cookies.Append(RefreshCookie, value, options);
+    }
 
     private void ClearRefreshCookie() =>
-        Response.Cookies.Delete(RefreshCookie, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = Request.IsHttps,
-            SameSite = SameSiteMode.Lax,
-            Path = "/api/auth",
-        });
+        Response.Cookies.Delete(RefreshCookie, RefreshCookieOptions());
 
     /// <summary>Adopts pre-auth projects and groups so existing data is not stranded.</summary>
     private async Task ClaimOwnerlessResourcesAsync(Guid userId)

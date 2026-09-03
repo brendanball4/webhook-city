@@ -9,6 +9,7 @@ public record EndpointResponse(
     string Slug,
     string Source,
     EventKind Kind,
-    string SecretToken,
+    /// <summary>Null for Viewers — only owners and editors receive the ingest secret.</summary>
+    string? SecretToken,
     DateTimeOffset CreatedAt,
     string IngestPath);

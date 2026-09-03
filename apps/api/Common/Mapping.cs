@@ -7,21 +7,27 @@ namespace WebhookCity.Api.Common;
 /// <summary>Maps domain entities to response DTOs.</summary>
 public static class Mapping
 {
-    public static EndpointResponse ToResponse(Endpoint e) => new(
+    /// <param name="includeSecret">
+    /// Viewers must never receive the ingest secret — with it they could forge
+    /// events. Only owners and editors get the real value.
+    /// </param>
+    public static EndpointResponse ToResponse(Endpoint e, bool includeSecret = true) => new(
         e.Id,
         e.Slug,
         e.Source,
         e.Kind,
-        e.SecretToken,
+        includeSecret ? e.SecretToken : null,
         e.CreatedAt,
         $"/ingest/{e.Project?.Slug}/{e.Slug}");
 
-    public static ProjectDetailResponse ToDetail(Project p) => new(
+    public static ProjectDetailResponse ToDetail(
+        Project p, bool includeSecrets = true, string role = "Owner") => new(
         p.Id,
         p.Name,
         p.Slug,
         p.Capability,
         p.GroupId,
+        role,
         p.CreatedAt,
         p.Endpoints
             .OrderBy(e => e.CreatedAt)
@@ -29,7 +35,7 @@ public static class Mapping
             {
                 // Ensure IngestPath can resolve the project slug.
                 e.Project ??= p;
-                return ToResponse(e);
+                return ToResponse(e, includeSecrets);
             })
             .ToList());
 

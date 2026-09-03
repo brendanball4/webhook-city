@@ -16,6 +16,8 @@ public record ProjectResponse(
     string Slug,
     ProjectCapability Capability,
     Guid? GroupId,
+    /// <summary>Caller's relationship to this project: Owner | Editor | Viewer.</summary>
+    string Role,
     DateTimeOffset CreatedAt,
     int EndpointCount);
 
@@ -25,5 +27,18 @@ public record ProjectDetailResponse(
     string Slug,
     ProjectCapability Capability,
     Guid? GroupId,
+    string Role,
     DateTimeOffset CreatedAt,
     IReadOnlyList<EndpointResponse> Endpoints);
+
+/// <summary>A person a project has been shared with.</summary>
+public record ProjectMemberResponse(
+    Guid UserId,
+    string Email,
+    string? DisplayName,
+    string Role,
+    DateTimeOffset CreatedAt);
+
+public record ShareProjectRequest(string Email, ProjectRole Role);
+
+public record UpdateMemberRoleRequest(ProjectRole Role);

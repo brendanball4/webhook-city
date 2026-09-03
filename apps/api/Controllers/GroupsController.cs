@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using WebhookCity.Api.Auth;
 using WebhookCity.Api.Common;
 using WebhookCity.Api.Data;
 using WebhookCity.Api.Dtos;
@@ -9,16 +11,28 @@ namespace WebhookCity.Api.Controllers;
 
 [ApiController]
 [Route("api/groups")]
+[Authorize]
 public class GroupsController : ControllerBase
 {
     private readonly WebhookCityDbContext _db;
+    private readonly ProjectAccess _access;
 
-    public GroupsController(WebhookCityDbContext db) => _db = db;
+    public GroupsController(WebhookCityDbContext db, ProjectAccess access)
+    {
+        _db = db;
+        _access = access;
+    }
+
+    /// <summary>Groups are personal: a caller only ever sees and edits their own.</summary>
+    private IQueryable<Group> OwnGroups(Guid userId) =>
+        _db.Groups.Where(g => g.OwnerId == userId);
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<GroupResponse>>> List()
     {
-        var groups = await _db.Groups
+        var userId = _access.RequireUserId();
+
+        var groups = await OwnGroups(userId)
             .OrderBy(g => g.Name)
             .Select(g => new GroupResponse(
                 g.Id, g.Name, g.Slug, g.Color, g.ParentId, g.CreatedAt, g.Projects.Count))
@@ -30,10 +44,13 @@ public class GroupsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<GroupResponse>> Create(CreateGroupRequest request)
     {
+        var userId = _access.RequireUserId();
+
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest("Name is required.");
 
-        if (request.ParentId is { } parentId && !await _db.Groups.AnyAsync(g => g.Id == parentId))
+        if (request.ParentId is { } parentId &&
+            !await OwnGroups(userId).AnyAsync(g => g.Id == parentId))
             return BadRequest("Parent group does not exist.");
 
         var slug = await SlugGenerator.UniqueSlugAsync(
@@ -47,6 +64,7 @@ public class GroupsController : ControllerBase
             Slug = slug,
             Color = request.Color,
             ParentId = request.ParentId,
+            OwnerId = userId,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
@@ -59,7 +77,9 @@ public class GroupsController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<GroupResponse>> Update(Guid id, UpdateGroupRequest request)
     {
-        var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == id);
+        var userId = _access.RequireUserId();
+
+        var group = await OwnGroups(userId).FirstOrDefaultAsync(g => g.Id == id);
         if (group is null)
             return NotFound();
 
@@ -71,7 +91,7 @@ public class GroupsController : ControllerBase
 
         if (request.ParentId is { } parentId)
         {
-            var parent = await _db.Groups.FirstOrDefaultAsync(g => g.Id == parentId);
+            var parent = await OwnGroups(userId).FirstOrDefaultAsync(g => g.Id == parentId);
             if (parent is null)
                 return BadRequest("Parent group does not exist.");
 
@@ -80,7 +100,7 @@ public class GroupsController : ControllerBase
             {
                 if (ancestorId == id)
                     return BadRequest("A group cannot be moved inside one of its descendants.");
-                cursor = await _db.Groups
+                cursor = await OwnGroups(userId)
                     .Where(g => g.Id == ancestorId)
                     .Select(g => g.ParentId)
                     .FirstOrDefaultAsync();
@@ -98,7 +118,9 @@ public class GroupsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == id);
+        var userId = _access.RequireUserId();
+
+        var group = await OwnGroups(userId).FirstOrDefaultAsync(g => g.Id == id);
         if (group is null)
             return NotFound();
 

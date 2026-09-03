@@ -16,6 +16,9 @@ public class WebhookCityDbContext : DbContext
     public DbSet<Event> Events => Set<Event>();
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<SlackDelivery> SlackDeliveries => Set<SlackDelivery>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +42,14 @@ public class WebhookCityDbContext : DbContext
                 .WithMany(g => g.Projects)
                 .HasForeignKey(p => p.GroupId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(p => p.OwnerId);
+
+            // Deleting an account takes its projects with it.
+            entity.HasOne(p => p.Owner)
+                .WithMany(u => u.OwnedProjects)
+                .HasForeignKey(p => p.OwnerId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Group>(entity =>
@@ -52,6 +63,55 @@ public class WebhookCityDbContext : DbContext
                 .WithMany(g => g.Children)
                 .HasForeignKey(g => g.ParentId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(g => g.OwnerId);
+
+            entity.HasOne(g => g.Owner)
+                .WithMany(u => u.OwnedGroups)
+                .HasForeignKey(g => g.OwnerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(u => u.Id);
+            // Emails are normalized to lowercase before saving, so a plain
+            // unique index gives case-insensitive uniqueness.
+            entity.HasIndex(u => u.Email).IsUnique();
+            entity.Property(u => u.Email).IsRequired();
+            entity.Property(u => u.PasswordHash).IsRequired();
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasIndex(t => t.TokenHash).IsUnique();
+            entity.HasIndex(t => t.UserId);
+
+            entity.HasOne(t => t.User)
+                .WithMany()
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProjectMember>(entity =>
+        {
+            entity.HasKey(m => new { m.ProjectId, m.UserId });
+            entity.HasIndex(m => m.UserId);
+
+            entity.Property(m => m.Role)
+                .HasConversion<string>()
+                .IsRequired();
+
+            entity.HasOne(m => m.Project)
+                .WithMany(p => p.Members)
+                .HasForeignKey(m => m.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(m => m.User)
+                .WithMany(u => u.Memberships)
+                .HasForeignKey(m => m.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Endpoint>(entity =>

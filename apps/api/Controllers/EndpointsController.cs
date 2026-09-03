@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using WebhookCity.Api.Auth;
 using WebhookCity.Api.Common;
 using WebhookCity.Api.Data;
 using WebhookCity.Api.Dtos;
@@ -10,25 +12,33 @@ namespace WebhookCity.Api.Controllers;
 
 [ApiController]
 [Route("api/projects/{projectSlug}/endpoints")]
+[Authorize]
 public class EndpointsController : ControllerBase
 {
     private readonly WebhookCityDbContext _db;
+    private readonly ProjectAccess _access;
 
-    public EndpointsController(WebhookCityDbContext db) => _db = db;
+    public EndpointsController(WebhookCityDbContext db, ProjectAccess access)
+    {
+        _db = db;
+        _access = access;
+    }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EndpointResponse>>> List(string projectSlug)
     {
-        var project = await _db.Projects
-            .Include(p => p.Endpoints)
-            .FirstOrDefaultAsync(p => p.Slug == projectSlug);
+        var found = await _access.FindAsync(
+            projectSlug, AccessLevel.Viewer, q => q.Include(p => p.Endpoints));
 
-        if (project is null)
+        if (found is null)
             return NotFound();
+
+        var (project, level) = found.Value;
+        var includeSecrets = level >= AccessLevel.Editor;
 
         var responses = project.Endpoints
             .OrderBy(e => e.CreatedAt)
-            .Select(e => { e.Project = project; return Mapping.ToResponse(e); });
+            .Select(e => { e.Project = project; return Mapping.ToResponse(e, includeSecrets); });
 
         return Ok(responses);
     }
@@ -37,11 +47,11 @@ public class EndpointsController : ControllerBase
     public async Task<ActionResult<EndpointResponse>> Create(
         string projectSlug, CreateEndpointRequest request)
     {
-        var project = await _db.Projects
-            .FirstOrDefaultAsync(p => p.Slug == projectSlug);
-
-        if (project is null)
+        var found = await _access.FindAsync(projectSlug, AccessLevel.Editor);
+        if (found is null)
             return NotFound();
+
+        var project = found.Value.Project;
 
         if (string.IsNullOrWhiteSpace(request.Source))
             return BadRequest("Source is required.");
@@ -94,9 +104,13 @@ public class EndpointsController : ControllerBase
     [HttpDelete("{endpointSlug}")]
     public async Task<IActionResult> Delete(string projectSlug, string endpointSlug)
     {
+        var found = await _access.FindAsync(projectSlug, AccessLevel.Editor);
+        if (found is null)
+            return NotFound();
+
         var endpoint = await _db.Endpoints
             .FirstOrDefaultAsync(e =>
-                e.Slug == endpointSlug && e.Project!.Slug == projectSlug);
+                e.Slug == endpointSlug && e.ProjectId == found.Value.Project.Id);
 
         if (endpoint is null)
             return NotFound();

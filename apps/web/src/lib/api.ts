@@ -12,6 +12,7 @@ export interface Group {
   name: string;
   slug: string;
   color: string | null;
+  parentId: string | null;
   createdAt: string;
   projectCount: number;
 }
@@ -77,6 +78,11 @@ export interface WebhookEvent {
   body: Record<string, unknown> | null;
 }
 
+export interface SlackIntegration {
+  configured: boolean;
+  enabled: boolean;
+}
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -117,16 +123,16 @@ export const api = {
 
   listGroups: () => http<Group[]>("/api/groups"),
 
-  createGroup: (name: string, color: string | null = null) =>
+  createGroup: (name: string, color: string | null = null, parentId: string | null = null) =>
     http<Group>("/api/groups", {
       method: "POST",
-      body: JSON.stringify({ name, color }),
+      body: JSON.stringify({ name, color, parentId }),
     }),
 
-  updateGroup: (id: string, name: string, color: string | null) =>
+  updateGroup: (id: string, name: string, color: string | null, parentId: string | null) =>
     http<Group>(`/api/groups/${id}`, {
       method: "PUT",
-      body: JSON.stringify({ name, color }),
+      body: JSON.stringify({ name, color, parentId }),
     }),
 
   deleteGroup: (id: string) =>
@@ -146,6 +152,26 @@ export const api = {
       `/api/projects/${projectSlug}/endpoints/${endpointSlug}`,
       { method: "DELETE" },
     ),
+
+  getSlackIntegration: (projectSlug: string) =>
+    http<SlackIntegration>(`/api/projects/${projectSlug}/integrations/slack`),
+
+  configureSlack: (projectSlug: string, webhookUrl: string) =>
+    http<SlackIntegration>(`/api/projects/${projectSlug}/integrations/slack`, {
+      method: "PUT",
+      body: JSON.stringify({ webhookUrl }),
+    }),
+
+  testSlack: (projectSlug: string) =>
+    http<{ delivered: boolean }>(
+      `/api/projects/${projectSlug}/integrations/slack/test`,
+      { method: "POST" },
+    ),
+
+  deleteSlackIntegration: (projectSlug: string) =>
+    http<void>(`/api/projects/${projectSlug}/integrations/slack`, {
+      method: "DELETE",
+    }),
 
   getHealth: (projectSlug: string) =>
     http<EndpointHealth[]>(`/api/projects/${projectSlug}/health`),

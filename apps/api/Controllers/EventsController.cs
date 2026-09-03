@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using WebhookCity.Api.Auth;
 using WebhookCity.Api.Common;
 using WebhookCity.Api.Data;
 using WebhookCity.Api.Dtos;
@@ -9,11 +11,18 @@ namespace WebhookCity.Api.Controllers;
 
 [ApiController]
 [Route("api/projects/{projectSlug}/events")]
+[Authorize]
 public class EventsController : ControllerBase
 {
     private readonly WebhookCityDbContext _db;
 
-    public EventsController(WebhookCityDbContext db) => _db = db;
+    private readonly ProjectAccess _access;
+
+    public EventsController(WebhookCityDbContext db, ProjectAccess access)
+    {
+        _db = db;
+        _access = access;
+    }
 
     /// <summary>List a project's events, newest first. Supports simple cursor paging via `before`.</summary>
     [HttpGet]
@@ -23,11 +32,11 @@ public class EventsController : ControllerBase
         [FromQuery] DateTimeOffset? before = null,
         [FromQuery] EventKind? kind = null)
     {
-        var project = await _db.Projects
-            .FirstOrDefaultAsync(p => p.Slug == projectSlug);
-
-        if (project is null)
+        var found = await _access.FindAsync(projectSlug, AccessLevel.Viewer);
+        if (found is null)
             return NotFound();
+
+        var project = found.Value.Project;
 
         take = Math.Clamp(take, 1, 200);
 

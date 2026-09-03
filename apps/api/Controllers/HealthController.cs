@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using WebhookCity.Api.Auth;
 using WebhookCity.Api.Common;
 using WebhookCity.Api.Data;
 using WebhookCity.Api.Dtos;
@@ -8,6 +10,7 @@ namespace WebhookCity.Api.Controllers;
 
 [ApiController]
 [Route("api/projects/{projectSlug}/health")]
+[Authorize]
 public class HealthController : ControllerBase
 {
     // How many recent events to scan for last-status and the per-endpoint strip.
@@ -16,17 +19,24 @@ public class HealthController : ControllerBase
 
     private readonly WebhookCityDbContext _db;
 
-    public HealthController(WebhookCityDbContext db) => _db = db;
+    private readonly ProjectAccess _access;
+
+    public HealthController(WebhookCityDbContext db, ProjectAccess access)
+    {
+        _db = db;
+        _access = access;
+    }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EndpointHealth>>> Get(string projectSlug)
     {
-        var project = await _db.Projects
-            .Include(p => p.Endpoints)
-            .FirstOrDefaultAsync(p => p.Slug == projectSlug);
+        var found = await _access.FindAsync(
+            projectSlug, AccessLevel.Viewer, q => q.Include(p => p.Endpoints));
 
-        if (project is null)
+        if (found is null)
             return NotFound();
+
+        var project = found.Value.Project;
 
         // One pass for counts + last-seen, keyed by endpoint.
         var aggregates = await _db.Events

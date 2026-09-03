@@ -25,6 +25,17 @@ public static class StatusParser
         if (body is null || body.RootElement.ValueKind != JsonValueKind.Object)
             return null;
 
+        var appStoreConnectStatus = ParseAppStoreConnect(body.RootElement);
+        if (appStoreConnectStatus is not null)
+            return appStoreConnectStatus;
+
+        if (source.Equals("xcode-cloud", StringComparison.OrdinalIgnoreCase))
+        {
+            var xcodeCloudStatus = ParseXcodeCloud(body.RootElement);
+            if (xcodeCloudStatus is not null)
+                return xcodeCloudStatus;
+        }
+
         foreach (var field in StatusFields)
         {
             if (body.RootElement.TryGetProperty(field, out var prop) &&
@@ -38,6 +49,82 @@ public static class StatusParser
         }
 
         return null;
+    }
+
+    private static string? ParseAppStoreConnect(JsonElement root)
+    {
+        if (!TryGetNestedString(root, out var dataType, "data", "type"))
+            return null;
+
+        if (dataType is "buildUploadStateUpdated" or "backgroundAssetVersionStateUpdated" &&
+            TryGetNestedString(root, out var newState, "data", "attributes", "newState"))
+        {
+            return newState.ToUpperInvariant() switch
+            {
+                "COMPLETE" => "success",
+                "FAILED" => "error",
+                "AWAITING_UPLOAD" or "PROCESSING" => "pending",
+                _ => null,
+            };
+        }
+
+        return null;
+    }
+
+    private static string? ParseXcodeCloud(JsonElement root)
+    {
+        if (TryGetNestedString(
+                root,
+                out var completionStatus,
+                "ciBuildRun", "attributes", "completionStatus"))
+        {
+            var normalized = Normalize(completionStatus);
+            if (normalized is not null)
+                return normalized;
+
+            if (completionStatus.Equals("SKIPPED", StringComparison.OrdinalIgnoreCase))
+                return "success";
+        }
+
+        if (TryGetNestedString(
+                root,
+                out var executionProgress,
+                "ciBuildRun", "attributes", "executionProgress"))
+        {
+            var normalized = Normalize(executionProgress);
+            if (normalized is not null)
+                return normalized;
+        }
+
+        if (TryGetNestedString(root, out var eventType, "metadata", "attributes", "eventType") &&
+            (eventType.Equals("BUILD_CREATED", StringComparison.OrdinalIgnoreCase) ||
+             eventType.Equals("BUILD_STARTED", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "pending";
+        }
+
+        return null;
+    }
+
+    private static bool TryGetNestedString(
+        JsonElement element,
+        out string value,
+        params string[] path)
+    {
+        foreach (var segment in path)
+        {
+            if (element.ValueKind != JsonValueKind.Object ||
+                !element.TryGetProperty(segment, out element))
+            {
+                value = string.Empty;
+                return false;
+            }
+        }
+
+        value = element.ValueKind == JsonValueKind.String
+            ? element.GetString() ?? string.Empty
+            : string.Empty;
+        return value.Length > 0;
     }
 
     private static string? Normalize(string? value)

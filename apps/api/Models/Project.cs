@@ -19,6 +19,13 @@ public class Project
     public Guid? GroupId { get; set; }
     public Group? Group { get; set; }
 
+    /// <summary>
+    /// Account that owns this project. Nullable only so pre-auth rows can be
+    /// backfilled; the first registered account claims every ownerless row.
+    /// </summary>
+    public Guid? OwnerId { get; set; }
+    public User? Owner { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>Project-specific Slack Incoming Webhook URL. Never expose in API responses.</summary>
@@ -28,4 +35,5 @@ public class Project
 
     public ICollection<Endpoint> Endpoints { get; set; } = new List<Endpoint>();
     public ICollection<Event> Events { get; set; } = new List<Event>();
+    public ICollection<ProjectMember> Members { get; set; } = new List<ProjectMember>();
 }

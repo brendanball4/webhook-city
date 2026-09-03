@@ -13,6 +13,8 @@ COPY . ./
 # the host, so it reaches the API via the host-mapped port.
 ARG NEXT_PUBLIC_API_URL=http://localhost:5000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Opts this build into Next's "standalone" output (see next.config.ts).
+ENV DOCKER_BUILD=1
 RUN npm run build
 
 # --- Runtime ---

@@ -192,6 +192,10 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  /** Exchanges the httpOnly refresh cookie for a new session on page load. */
+  refreshSession: () =>
+    http<AuthResponse>("/api/auth/refresh", { method: "POST" }),
+
   logout: () => http<void>("/api/auth/logout", { method: "POST" }),
 
   me: () => http<AuthUser>("/api/auth/me"),

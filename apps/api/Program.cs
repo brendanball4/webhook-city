@@ -1,5 +1,11 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using WebhookCity.Api.Auth;
 using WebhookCity.Api.Data;
+using WebhookCity.Api.Models;
 using WebhookCity.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,8 +21,39 @@ builder.Services.AddCors(options =>
     options.AddPolicy(FrontendCors, policy => policy
         .WithOrigins("http://localhost:3000")
         .AllowAnyHeader()
-        .AllowAnyMethod());
+        .AllowAnyMethod()
+        // Required so the browser will send/receive the httpOnly refresh cookie.
+        .AllowCredentials());
 });
+
+builder.Services.Configure<JwtOptions>(
+    builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddScoped<ProjectAccess>();
+builder.Services.AddHttpContextAccessor();
+
+var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+          ?? new JwtOptions();
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
+            ClockSkew = TimeSpan.FromSeconds(30),
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 builder.Services
     .AddControllers()
@@ -55,6 +92,7 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

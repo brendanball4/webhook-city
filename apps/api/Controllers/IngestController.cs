@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
@@ -5,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using WebhookCity.Api.Common;
 using WebhookCity.Api.Data;
 using WebhookCity.Api.Models;
+using EndpointModel = WebhookCity.Api.Models.Endpoint;
 
 namespace WebhookCity.Api.Controllers;
 
@@ -34,10 +36,13 @@ public class IngestController : ControllerBase
         if (endpoint is null)
             return NotFound();
 
-        if (!IsSecretValid(endpoint.SecretToken))
+        var rawBody = await ReadBodyAsync();
+        if (rawBody is null)
+            return StatusCode(StatusCodes.Status413PayloadTooLarge);
+
+        if (!IsSecretValid(endpoint, rawBody))
             return Unauthorized();
 
-        var rawBody = await ReadBodyAsync();
         var body = TryParseJson(rawBody);
         var headers = CaptureHeaders();
 
@@ -57,20 +62,48 @@ public class IngestController : ControllerBase
         };
 
         _db.Events.Add(ev);
+
+        if (endpoint.Project!.SlackNotificationsEnabled &&
+            !string.IsNullOrWhiteSpace(endpoint.Project.SlackWebhookUrl))
+        {
+            _db.SlackDeliveries.Add(new SlackDelivery
+            {
+                Id = Guid.NewGuid(),
+                Event = ev,
+                EventId = ev.Id,
+                Status = "pending",
+                CreatedAt = DateTimeOffset.UtcNow,
+                NextAttemptAt = DateTimeOffset.UtcNow,
+            });
+        }
+
         await _db.SaveChangesAsync();
 
         return Accepted(new { id = ev.Id, receivedAt = ev.ReceivedAt });
     }
 
-    private bool IsSecretValid(string expected)
+    private bool IsSecretValid(EndpointModel endpoint, ReadOnlySpan<byte> rawBody)
     {
+        // Apple signs the exact request bytes with HMAC-SHA256. Xcode Cloud
+        // endpoints require this signature instead of receiving the secret.
+        if (endpoint.Source.Equals("xcode-cloud", StringComparison.OrdinalIgnoreCase))
+        {
+            return WebhookSignatureVerifier.VerifyApple(
+                Request.Headers["X-Apple-Signature"].FirstOrDefault(),
+                endpoint.SecretToken,
+                rawBody);
+        }
+
         // Accept the secret via header or query string for flexibility with senders.
         var provided = Request.Headers["X-Webhook-Secret"].FirstOrDefault()
                        ?? Request.Query["secret"].FirstOrDefault();
-        return !string.IsNullOrEmpty(provided) && provided == expected;
+        return !string.IsNullOrEmpty(provided) &&
+               CryptographicOperations.FixedTimeEquals(
+                   Encoding.UTF8.GetBytes(provided),
+                   Encoding.UTF8.GetBytes(endpoint.SecretToken));
     }
 
-    private async Task<string> ReadBodyAsync()
+    private async Task<byte[]?> ReadBodyAsync()
     {
         // Buffering is enabled by middleware so the body is always rewindable,
         // even when [ApiController] form-binding has already read the stream.
@@ -78,20 +111,33 @@ public class IngestController : ControllerBase
         if (Request.Body.CanSeek)
             Request.Body.Position = 0;
 
-        using var reader = new StreamReader(
-            Request.Body, Encoding.UTF8, leaveOpen: true);
-        var raw = await reader.ReadToEndAsync();
+        if (Request.ContentLength > MaxBodyBytes)
+            return null;
+
+        using var output = new MemoryStream();
+        var buffer = new byte[16 * 1024];
+        int read;
+        while ((read = await Request.Body.ReadAsync(buffer)) > 0)
+        {
+            if (output.Length + read > MaxBodyBytes)
+            {
+                if (Request.Body.CanSeek)
+                    Request.Body.Position = 0;
+                return null;
+            }
+
+            await output.WriteAsync(buffer.AsMemory(0, read));
+        }
 
         if (Request.Body.CanSeek)
             Request.Body.Position = 0;
 
-        // Guard against oversized payloads.
-        return raw.Length > MaxBodyBytes ? raw[..(int)MaxBodyBytes] : raw;
+        return output.ToArray();
     }
 
-    private static JsonDocument? TryParseJson(string raw)
+    private static JsonDocument? TryParseJson(ReadOnlyMemory<byte> raw)
     {
-        if (string.IsNullOrWhiteSpace(raw))
+        if (raw.IsEmpty || string.IsNullOrWhiteSpace(Encoding.UTF8.GetString(raw.Span)))
             return null;
         try
         {
@@ -100,7 +146,8 @@ public class IngestController : ControllerBase
         catch (JsonException)
         {
             // Non-JSON payloads are wrapped so we always store valid jsonb.
-            return JsonDocument.Parse(JsonSerializer.Serialize(new { raw }));
+            return JsonDocument.Parse(JsonSerializer.Serialize(
+                new { raw = Encoding.UTF8.GetString(raw.Span) }));
         }
     }
 
@@ -110,7 +157,8 @@ public class IngestController : ControllerBase
         foreach (var header in Request.Headers)
         {
             // Don't persist the secret in the stored headers.
-            if (header.Key.Equals("X-Webhook-Secret", StringComparison.OrdinalIgnoreCase))
+            if (header.Key.Equals("X-Webhook-Secret", StringComparison.OrdinalIgnoreCase) ||
+                header.Key.Equals("X-Apple-Signature", StringComparison.OrdinalIgnoreCase))
                 continue;
             dict[header.Key] = header.Value.ToString();
         }

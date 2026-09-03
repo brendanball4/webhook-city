@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Folder, Gauge, RadioTower, Settings, UserRound, LogOut } from "lucide-react";
+import { ChevronRight, Folder, Gauge, RadioTower, Settings, UserRound, LogOut, MoreVertical } from "lucide-react";
 import { api, type Group, type Project } from "@/lib/api";
 import {
   Sidebar,
@@ -26,6 +26,13 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "./AuthProvider";
+import { ConfirmModal } from "./ConfirmModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function ProjectLink({ project, pathname }: { project: Project; pathname: string }) {
   const href = `/projects/${project.slug}`;
@@ -89,9 +96,25 @@ function GroupTree({
   );
 }
 
+function initials(name: string) {
+  const parts = name.trim().split(/[\s@.]+/).filter(Boolean);
+  const letters = parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2);
+  return letters.toUpperCase();
+}
+
+function UserAvatar({ name }: { name: string }) {
+  return (
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+      {initials(name)}
+    </span>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const accountName = user?.displayName ?? user?.email ?? "Account";
   const [groups, setGroups] = useState<Group[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
 
@@ -191,34 +214,58 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SidebarGroup>
           </SidebarContent>
 
-          <SidebarFooter className="border-t p-2">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Settings" isActive={pathname === "/settings"} render={<Link href="/settings" />}>
-                  <Settings />
-                  <span>Settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip={user?.email ?? "Account"} render={<Link href="/settings" />}>
-                  <UserRound />
-                  <span className="flex min-w-0 flex-col items-start leading-tight">
-                    <span className="truncate">{user?.displayName ?? user?.email ?? "Account"}</span>
-                    {user?.displayName && (
-                      <span className="truncate text-[10px] text-muted-foreground">
-                        {user.email}
-                      </span>
-                    )}
+          {/* Full-width rows, profile last — matching the invoice app's footer. */}
+          <SidebarFooter className="gap-0 border-t p-0">
+            <Link
+              href="/settings"
+              className="flex w-full items-center gap-2 border-b px-4 py-3 text-sm transition-colors hover:bg-muted/50"
+            >
+              <Settings className="size-4 shrink-0 text-muted-foreground" />
+              <span>Settings</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setConfirmingSignOut(true)}
+              className="flex w-full items-center gap-2 border-b px-4 py-3 text-sm transition-colors hover:bg-muted/50"
+            >
+              <LogOut className="size-4 shrink-0 text-muted-foreground" />
+              <span>Sign out</span>
+            </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                  />
+                }
+              >
+                <UserAvatar name={accountName} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">
+                    {accountName}
                   </span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Sign out" onClick={logout}>
-                  <LogOut />
-                  <span>Sign out</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
+                  {user?.displayName && (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {user.email}
+                    </span>
+                  )}
+                </span>
+                <MoreVertical className="size-4 shrink-0 text-muted-foreground" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="end" className="w-52">
+                <DropdownMenuItem render={<Link href="/settings" />}>
+                  <UserRound />
+                  Account
+                </DropdownMenuItem>
+                <DropdownMenuItem render={<Link href="/settings" />}>
+                  <Settings />
+                  Settings
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarFooter>
         </Sidebar>
 
@@ -226,6 +273,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SidebarTrigger className="fixed left-3 top-3 z-40 border bg-background md:hidden" />
           {children}
         </SidebarInset>
+
+        {confirmingSignOut && (
+          <ConfirmModal
+            title="Sign out?"
+            message="You'll need to sign back in to access your projects."
+            confirmLabel="Sign out"
+            onConfirm={logout}
+            onCancel={() => setConfirmingSignOut(false)}
+          />
+        )}
       </SidebarProvider>
     </TooltipProvider>
   );

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Folder, Gauge, RadioTower, Settings, UserRound, LogOut, MoreVertical } from "lucide-react";
+import { ChevronRight, Folder, Gauge, RadioTower, Settings, UserRound, LogOut, MoreVertical, Users2 } from "lucide-react";
 import { api, type Group, type Project } from "@/lib/api";
 import {
   Sidebar,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { partitionProjects } from "@/lib/projects";
 import { useAuth } from "./AuthProvider";
 import { ConfirmModal } from "./ConfirmModal";
 import {
@@ -96,6 +97,35 @@ function GroupTree({
   );
 }
 
+function SharedTree({
+  projects,
+  pathname,
+}: {
+  projects: Project[];
+  pathname: string;
+}) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <SidebarMenuSubItem>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger className="flex h-7 w-full items-center gap-1.5 px-2 text-left text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/70 outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+          <ChevronRight className={`size-3 shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
+          <Users2 className="size-3.5 shrink-0" />
+          <span className="truncate">Shared projects</span>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub className="mx-1.5 px-1.5">
+            {projects.map((project) => (
+              <ProjectLink key={project.id} project={project} pathname={pathname} />
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </Collapsible>
+    </SidebarMenuSubItem>
+  );
+}
+
 function initials(name: string) {
   const parts = name.trim().split(/[\s@.]+/).filter(Boolean);
   const letters = parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2);
@@ -117,6 +147,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const accountName = user?.displayName ?? user?.email ?? "Account";
   const [groups, setGroups] = useState<Group[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  // Shared projects belong to someone else's group tree, so they are listed
+  // separately rather than silently vanishing from the grouped view.
+  const { owned, shared } = partitionProjects(projects);
 
   useEffect(() => {
     let active = true;
@@ -185,6 +218,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <span>Projects</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="Shared projects"
+                      isActive={pathname === "/shared"}
+                      render={<Link href="/shared" />}
+                    >
+                      <Users2 />
+                      <span>Shared projects</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -200,13 +243,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           key={group.id}
                           group={group}
                           groups={groups}
-                          projects={projects}
+                          projects={owned}
                           pathname={pathname}
                         />
                       ))}
-                      {projects.filter((project) => !project.groupId).map((project) => (
+                      {owned.filter((project) => !project.groupId).map((project) => (
                         <ProjectLink key={project.id} project={project} pathname={pathname} />
                       ))}
+                      {shared.length > 0 && (
+                        <SharedTree projects={shared} pathname={pathname} />
+                      )}
                     </SidebarMenuSub>
                   </SidebarMenuItem>
                 </SidebarMenu>

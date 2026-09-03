@@ -1,0 +1,19 @@
+# Netlify build settings for the Next.js frontend.
+# This repo is a monorepo, so the build runs inside apps/web.
+#
+# Set NEXT_PUBLIC_API_URL in the Netlify UI (Site settings → Environment
+# variables) to the public URL of the API on the Pi, with no trailing slash —
+# e.g. https://webhookcity-api.bmball.com
+# That value is baked into the client bundle at build time, so changing it
+# requires a redeploy.
+#
+# The same origin Netlify serves this site from must also be listed in the
+# API's CORS_ORIGINS, or the browser will block every request.
+
+[build]
+  base = "apps/web"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"

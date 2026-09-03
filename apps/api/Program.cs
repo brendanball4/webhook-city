@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using WebhookCity.Api.Data;
+using WebhookCity.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,8 @@ builder.Services
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient<SlackWebhookClient>();
+builder.Services.AddHostedService<SlackDeliveryWorker>();
 
 var app = builder.Build();
 

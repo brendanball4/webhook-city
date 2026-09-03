@@ -1,5 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using WebhookCity.Api.Auth;
 using WebhookCity.Api.Data;
 using WebhookCity.Api.Dtos;
 using WebhookCity.Api.Services;
@@ -8,16 +9,20 @@ namespace WebhookCity.Api.Controllers;
 
 [ApiController]
 [Route("api/projects/{projectSlug}/integrations/slack")]
+[Authorize]
 public class SlackIntegrationController(
     WebhookCityDbContext db,
-    SlackWebhookClient slack) : ControllerBase
+    SlackWebhookClient slack,
+    ProjectAccess access) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<SlackIntegrationResponse>> Get(string projectSlug)
     {
-        var project = await db.Projects.FirstOrDefaultAsync(p => p.Slug == projectSlug);
-        if (project is null)
+        var found = await access.FindAsync(projectSlug, AccessLevel.Viewer);
+        if (found is null)
             return NotFound();
+
+        var project = found.Value.Project;
 
         return Ok(new SlackIntegrationResponse(
             !string.IsNullOrWhiteSpace(project.SlackWebhookUrl),
@@ -29,9 +34,11 @@ public class SlackIntegrationController(
         string projectSlug,
         ConfigureSlackRequest request)
     {
-        var project = await db.Projects.FirstOrDefaultAsync(p => p.Slug == projectSlug);
-        if (project is null)
+        var found = await access.FindAsync(projectSlug, AccessLevel.Owner);
+        if (found is null)
             return NotFound();
+
+        var project = found.Value.Project;
 
         if (!SlackWebhookClient.IsValidWebhookUrl(request.WebhookUrl, out _))
             return BadRequest("Enter a valid Slack Incoming Webhook URL.");
@@ -46,9 +53,11 @@ public class SlackIntegrationController(
     [HttpPost("test")]
     public async Task<IActionResult> Test(string projectSlug, CancellationToken cancellationToken)
     {
-        var project = await db.Projects.FirstOrDefaultAsync(p => p.Slug == projectSlug);
-        if (project is null)
+        var found = await access.FindAsync(projectSlug, AccessLevel.Owner);
+        if (found is null)
             return NotFound();
+
+        var project = found.Value.Project;
         if (!project.SlackNotificationsEnabled || string.IsNullOrWhiteSpace(project.SlackWebhookUrl))
             return BadRequest("Configure Slack first.");
 
@@ -65,9 +74,11 @@ public class SlackIntegrationController(
     [HttpDelete]
     public async Task<IActionResult> Delete(string projectSlug)
     {
-        var project = await db.Projects.FirstOrDefaultAsync(p => p.Slug == projectSlug);
-        if (project is null)
+        var found = await access.FindAsync(projectSlug, AccessLevel.Owner);
+        if (found is null)
             return NotFound();
+
+        var project = found.Value.Project;
 
         project.SlackWebhookUrl = null;
         project.SlackNotificationsEnabled = false;

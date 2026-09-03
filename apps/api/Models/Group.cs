@@ -1,7 +1,7 @@
 namespace WebhookCity.Api.Models;
 
 /// <summary>
-/// A flat grouping of projects, e.g. all projects for one client.
+/// A hierarchical grouping of projects, e.g. client / product family.
 /// A project belongs to zero or one group.
 /// </summary>
 public class Group
@@ -15,6 +15,10 @@ public class Group
 
     /// <summary>Optional accent color (hex) for the group's dot/label.</summary>
     public string? Color { get; set; }
+
+    public Guid? ParentId { get; set; }
+    public Group? Parent { get; set; }
+    public ICollection<Group> Children { get; set; } = new List<Group>();
 
     public DateTimeOffset CreatedAt { get; set; }
 

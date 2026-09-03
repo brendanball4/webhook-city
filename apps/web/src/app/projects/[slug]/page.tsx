@@ -12,6 +12,7 @@ import { LogStoragePanel } from "@/components/LogStoragePanel";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { StatusBoard } from "@/components/StatusBoard";
 import { SlackPanel } from "@/components/SlackPanel";
+import { SharePanel } from "@/components/SharePanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -143,13 +144,15 @@ export default function ProjectPage({
                     ))}
                   </SelectContent>
                 </Select>
-                <Button
-                  variant="destructive"
-                  onClick={() => setConfirmingDelete(true)}
-                >
-                  <Trash2 data-icon="inline-start" />
-                  Delete project
-                </Button>
+                {project.role === "Owner" && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => setConfirmingDelete(true)}
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    Delete project
+                  </Button>
+                )}
               </div>
             </section>
 
@@ -163,7 +166,10 @@ export default function ProjectPage({
                   capability={project.capability}
                   onChange={reload}
                 />
-                <SlackPanel projectSlug={project.slug} />
+                {project.role === "Owner" && (
+                  <SlackPanel projectSlug={project.slug} />
+                )}
+                <SharePanel projectSlug={project.slug} role={project.role} />
                 {project.capability !== "Webhooks" && (
                   <LogStoragePanel projectSlug={project.slug} />
                 )}

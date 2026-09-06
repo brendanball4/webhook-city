@@ -24,3 +24,7 @@ yarn-error.log*
 Thumbs.db
 .idea/
 *.swp
+
+# --- CI deploy markers (written on the Pi by the CircleCI deploy job) ---
+deploy.log
+deploy.done

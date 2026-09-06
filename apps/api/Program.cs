@@ -71,6 +71,11 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<SlackWebhookClient>();
 builder.Services.AddHostedService<SlackDeliveryWorker>();
 
+// Liveness/readiness probe. "/health" returns 200 only when the process is up
+// and its database is reachable; the Pi's monitoring cron polls this.
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<WebhookCityDbContext>();
+
 var app = builder.Build();
 
 // Apply pending EF Core migrations on startup so the schema is ready in any environment.
@@ -100,6 +105,7 @@ app.Use(async (context, next) =>
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 
 app.Run();

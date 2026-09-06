@@ -13,6 +13,10 @@ RUN dotnet publish WebhookCity.Api.csproj -c Release -o /app /p:UseAppHost=false
 # --- Runtime stage ---
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
+# curl is used by the compose healthcheck to poll /health.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app ./
 
 # Kestrel listens on 8080 inside the container.

@@ -68,14 +68,23 @@ public class IngestController : ControllerBase
 
         _db.Events.Add(ev);
 
-        if (endpoint.Project!.SlackNotificationsEnabled &&
-            !string.IsNullOrWhiteSpace(endpoint.Project.SlackWebhookUrl))
+        // Fan out to every enabled integration that listens to this endpoint.
+        // An integration with no endpoint rows means "all endpoints".
+        var integrations = await _db.Integrations
+            .Where(i => i.ProjectId == endpoint.ProjectId && i.Enabled)
+            .Where(i => !i.Endpoints.Any() ||
+                        i.Endpoints.Any(ie => ie.EndpointId == endpoint.Id))
+            .Select(i => i.Id)
+            .ToListAsync();
+
+        foreach (var integrationId in integrations)
         {
-            _db.SlackDeliveries.Add(new SlackDelivery
+            _db.IntegrationDeliveries.Add(new IntegrationDelivery
             {
                 Id = Guid.NewGuid(),
                 Event = ev,
                 EventId = ev.Id,
+                IntegrationId = integrationId,
                 Status = "pending",
                 CreatedAt = DateTimeOffset.UtcNow,
                 NextAttemptAt = DateTimeOffset.UtcNow,

@@ -3,9 +3,14 @@ using WebhookCity.Api.Data;
 
 namespace WebhookCity.Api.Services;
 
-public sealed class SlackDeliveryWorker(
+/// <summary>
+/// Drains the outbound delivery queue. Provider-agnostic: it resolves the right
+/// chat client from the delivery's integration, so new providers need no changes
+/// here.
+/// </summary>
+public sealed class IntegrationDeliveryWorker(
     IServiceScopeFactory scopeFactory,
-    ILogger<SlackDeliveryWorker> logger) : BackgroundService
+    ILogger<IntegrationDeliveryWorker> logger) : BackgroundService
 {
     private const int MaxAttempts = 5;
 
@@ -25,7 +30,7 @@ public sealed class SlackDeliveryWorker(
             }
             catch (Exception exception)
             {
-                logger.LogError(exception, "Slack delivery worker failed.");
+                logger.LogError(exception, "Integration delivery worker failed.");
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
         }
@@ -35,33 +40,46 @@ public sealed class SlackDeliveryWorker(
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<WebhookCityDbContext>();
-        var slack = scope.ServiceProvider.GetRequiredService<SlackWebhookClient>();
+        var resolver = scope.ServiceProvider.GetRequiredService<ChatWebhookClientResolver>();
         var now = DateTimeOffset.UtcNow;
 
-        var delivery = await db.SlackDeliveries
+        var delivery = await db.IntegrationDeliveries
+            .Include(d => d.Integration)
             .Include(d => d.Event)!
             .ThenInclude(e => e!.Project)
             .Where(d => d.Status == "pending" && d.NextAttemptAt <= now)
             .OrderBy(d => d.NextAttemptAt)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (delivery?.Event?.Project is not { } project)
+        if (delivery is null)
             return false;
 
         delivery.Attempts++;
-        SlackSendResult result;
-        if (!project.SlackNotificationsEnabled ||
-            string.IsNullOrWhiteSpace(project.SlackWebhookUrl))
+
+        SendResult result;
+        var integration = delivery.Integration;
+        var project = delivery.Event?.Project;
+        var client = integration is null ? null : resolver.For(integration.Provider);
+
+        if (integration is null || project is null || delivery.Event is null)
         {
-            result = new(false, false, "Slack integration is no longer enabled.");
+            result = new(false, false, "Delivery is missing its integration or event.");
+        }
+        else if (!integration.Enabled)
+        {
+            result = new(false, false, "Integration is no longer enabled.");
+        }
+        else if (client is null)
+        {
+            result = new(false, false, $"No client for provider {integration.Provider}.");
         }
         else
         {
             try
             {
-                result = await slack.SendAsync(
-                    project.SlackWebhookUrl,
-                    SlackMessageFormatter.Format(project, delivery.Event),
+                result = await client.SendAsync(
+                    integration.WebhookUrl,
+                    EventNotificationBuilder.Build(project, delivery.Event),
                     cancellationToken);
             }
             catch (HttpRequestException exception)

@@ -1,10 +1,13 @@
 using System.Net.Http.Json;
+using WebhookCity.Api.Models;
 
 namespace WebhookCity.Api.Services;
 
-public sealed class SlackWebhookClient(HttpClient httpClient)
+public sealed class SlackWebhookClient(HttpClient httpClient) : IChatWebhookClient
 {
-    public static bool IsValidWebhookUrl(string? value, out Uri? uri)
+    public IntegrationProvider Provider => IntegrationProvider.Slack;
+
+    public bool IsValidWebhookUrl(string? value, out Uri? uri)
     {
         uri = null;
         if (!Uri.TryCreate(value, UriKind.Absolute, out var candidate) ||
@@ -19,9 +22,9 @@ public sealed class SlackWebhookClient(HttpClient httpClient)
         return true;
     }
 
-    public async Task<SlackSendResult> SendAsync(
+    public async Task<SendResult> SendAsync(
         string webhookUrl,
-        string message,
+        EventNotification notification,
         CancellationToken cancellationToken = default)
     {
         if (!IsValidWebhookUrl(webhookUrl, out var uri))
@@ -29,7 +32,7 @@ public sealed class SlackWebhookClient(HttpClient httpClient)
 
         using var response = await httpClient.PostAsJsonAsync(
             uri,
-            new { text = message },
+            new { text = Render(notification) },
             cancellationToken);
 
         if (response.IsSuccessStatusCode)
@@ -40,6 +43,13 @@ public sealed class SlackWebhookClient(HttpClient httpClient)
         var error = $"Slack returned {(int)response.StatusCode}: {responseText}";
         return new(false, retryable, error[..Math.Min(error.Length, 500)]);
     }
-}
 
-public record SlackSendResult(bool Success, bool Retryable, string? Error);
+    /// <summary>Slack mrkdwn: single asterisks for bold, and &amp;/&lt;/&gt; must be escaped.</summary>
+    private static string Render(EventNotification notification) =>
+        $"*{Escape(notification.ProjectName)}* — {Escape(notification.Summary)}";
+
+    private static string Escape(string value) => value
+        .Replace("&", "&amp;", StringComparison.Ordinal)
+        .Replace("<", "&lt;", StringComparison.Ordinal)
+        .Replace(">", "&gt;", StringComparison.Ordinal);
+}

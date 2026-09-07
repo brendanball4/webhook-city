@@ -11,8 +11,9 @@ import { CapabilityBadge } from "@/components/CapabilityBadge";
 import { LogStoragePanel } from "@/components/LogStoragePanel";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { StatusBoard } from "@/components/StatusBoard";
-import { SlackPanel } from "@/components/SlackPanel";
+import { IntegrationsPanel } from "@/components/IntegrationsPanel";
 import { SharePanel } from "@/components/SharePanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -156,29 +157,43 @@ export default function ProjectPage({
               </div>
             </section>
 
-            <StatusBoard projectSlug={project.slug} />
+            <Tabs defaultValue="overview">
+              <TabsList variant="line">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="integrations">Integrations</TabsTrigger>
+              </TabsList>
 
-            <div className="grid items-start gap-6 xl:grid-cols-[minmax(22rem,0.8fr)_minmax(0,1.7fr)]">
-              <div className="grid content-start gap-6">
-                <EndpointsPanel
+              <TabsContent value="overview" className="space-y-6">
+                <StatusBoard projectSlug={project.slug} />
+
+                <div className="grid items-start gap-6 xl:grid-cols-[minmax(22rem,0.8fr)_minmax(0,1.7fr)]">
+                  <div className="grid content-start gap-6">
+                    <EndpointsPanel
+                      projectSlug={project.slug}
+                      initial={project.endpoints}
+                      capability={project.capability}
+                      onChange={reload}
+                    />
+                    <SharePanel projectSlug={project.slug} role={project.role} />
+                    {project.capability !== "Webhooks" && (
+                      <LogStoragePanel projectSlug={project.slug} />
+                    )}
+                  </div>
+                  <LiveFeed
+                    projectSlug={project.slug}
+                    capability={project.capability}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="integrations">
+                <IntegrationsPanel
                   projectSlug={project.slug}
-                  initial={project.endpoints}
-                  capability={project.capability}
-                  onChange={reload}
+                  endpoints={project.endpoints}
+                  role={project.role}
                 />
-                {project.role === "Owner" && (
-                  <SlackPanel projectSlug={project.slug} />
-                )}
-                <SharePanel projectSlug={project.slug} role={project.role} />
-                {project.capability !== "Webhooks" && (
-                  <LogStoragePanel projectSlug={project.slug} />
-                )}
-              </div>
-              <LiveFeed
-                projectSlug={project.slug}
-                capability={project.capability}
-              />
-            </div>
+              </TabsContent>
+            </Tabs>
 
             {confirmingDelete && (
               <ConfirmModal

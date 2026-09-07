@@ -69,7 +69,14 @@ builder.Services
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<SlackWebhookClient>();
-builder.Services.AddHostedService<SlackDeliveryWorker>();
+builder.Services.AddHttpClient<DiscordWebhookClient>();
+// Registered against the interface too so the resolver can enumerate providers.
+builder.Services.AddTransient<IChatWebhookClient>(sp =>
+    sp.GetRequiredService<SlackWebhookClient>());
+builder.Services.AddTransient<IChatWebhookClient>(sp =>
+    sp.GetRequiredService<DiscordWebhookClient>());
+builder.Services.AddScoped<ChatWebhookClientResolver>();
+builder.Services.AddHostedService<IntegrationDeliveryWorker>();
 
 // Liveness/readiness probe. "/health" returns 200 only when the process is up
 // and its database is reachable; the Pi's monitoring cron polls this.

@@ -28,12 +28,8 @@ public class Project
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    /// <summary>Project-specific Slack Incoming Webhook URL. Never expose in API responses.</summary>
-    public string? SlackWebhookUrl { get; set; }
-
-    public bool SlackNotificationsEnabled { get; set; }
-
     public ICollection<Endpoint> Endpoints { get; set; } = new List<Endpoint>();
     public ICollection<Event> Events { get; set; } = new List<Event>();
     public ICollection<ProjectMember> Members { get; set; } = new List<ProjectMember>();
+    public ICollection<Integration> Integrations { get; set; } = new List<Integration>();
 }

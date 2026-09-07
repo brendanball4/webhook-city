@@ -101,6 +101,36 @@ public class EndpointsController : ControllerBase
         return Ok(Mapping.ToResponse(endpoint));
     }
 
+    /// <summary>
+    /// Rename an endpoint's display label. The slug is deliberately NOT changed:
+    /// it forms the public ingest URL that external services already point at,
+    /// so renaming must never break delivery.
+    /// </summary>
+    [HttpPut("{endpointSlug}")]
+    public async Task<ActionResult<EndpointResponse>> Rename(
+        string projectSlug, string endpointSlug, RenameEndpointRequest request)
+    {
+        var found = await _access.FindAsync(projectSlug, AccessLevel.Editor);
+        if (found is null)
+            return NotFound();
+
+        if (string.IsNullOrWhiteSpace(request.Source))
+            return BadRequest("Name is required.");
+
+        var endpoint = await _db.Endpoints
+            .FirstOrDefaultAsync(e =>
+                e.Slug == endpointSlug && e.ProjectId == found.Value.Project.Id);
+
+        if (endpoint is null)
+            return NotFound();
+
+        endpoint.Source = request.Source.Trim().ToLowerInvariant();
+        await _db.SaveChangesAsync();
+
+        endpoint.Project = found.Value.Project;
+        return Ok(Mapping.ToResponse(endpoint, includeSecret: true));
+    }
+
     [HttpDelete("{endpointSlug}")]
     public async Task<IActionResult> Delete(string projectSlug, string endpointSlug)
     {

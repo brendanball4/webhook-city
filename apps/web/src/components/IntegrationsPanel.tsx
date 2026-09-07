@@ -162,7 +162,7 @@ export function IntegrationsPanel({
     if (integration.endpointIds.length === 0) return "All endpoints";
     const names = endpoints
       .filter((endpoint) => integration.endpointIds.includes(endpoint.id))
-      .map((endpoint) => endpoint.source);
+      .map((endpoint) => `${endpoint.source} (${endpoint.kind.toLowerCase()})`);
     return names.length > 0
       ? names.join(", ")
       : integration.endpointIds.length + " endpoints";
@@ -306,8 +306,14 @@ export function IntegrationsPanel({
                       }
                       size="sm"
                       onClick={() => toggleEndpoint(endpoint.id)}
+                      title={`/${endpoint.slug}`}
                     >
-                      {endpoint.source}
+                      <span>{endpoint.source}</span>
+                      {/* Two endpoints can share a source (one Log, one Webhook),
+                          so always show the kind and unique slug. */}
+                      <span className="opacity-60">
+                        {endpoint.kind === "Log" ? "log" : "webhook"} /{endpoint.slug}
+                      </span>
                     </Button>
                   ))}
                 </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   api,
   API_BASE,
@@ -12,6 +12,7 @@ import {
 import { KindBadge } from "./KindBadge";
 import { ConfirmModal } from "./ConfirmModal";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardAction,
@@ -70,6 +71,13 @@ export function EndpointsPanel({
   async function remove(endpoint: Endpoint) {
     await api.deleteEndpoint(projectSlug, endpoint.slug);
     setEndpoints((previous) => previous.filter((item) => item.id !== endpoint.id));
+    onChange?.();
+  }
+
+  /** Refetch so renamed labels show everywhere that reads the project. */
+  async function rename() {
+    setEndpoints(await api.listEndpoints(projectSlug));
+    onChange?.();
   }
 
   return (
@@ -122,7 +130,12 @@ export function EndpointsPanel({
           {endpoints.map((endpoint, index) => (
             <div key={endpoint.id}>
               {index > 0 && <Separator />}
-              <EndpointItem endpoint={endpoint} onDelete={() => remove(endpoint)} />
+              <EndpointItem
+                endpoint={endpoint}
+                projectSlug={projectSlug}
+                onDelete={() => remove(endpoint)}
+                onRenamed={rename}
+              />
             </div>
           ))}
         </div>
@@ -133,13 +146,19 @@ export function EndpointsPanel({
 
 function EndpointItem({
   endpoint,
+  projectSlug,
   onDelete,
+  onRenamed,
 }: {
   endpoint: Endpoint;
+  projectSlug: string;
   onDelete: () => Promise<void>;
+  onRenamed: () => void;
 }) {
   const [copied, setCopied] = useState<"url" | "secret" | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState(endpoint.source);
   const url = `${API_BASE}${endpoint.ingestPath}`;
 
   function copy(text: string, which: "url" | "secret") {
@@ -148,16 +167,52 @@ function EndpointItem({
     setTimeout(() => setCopied(null), 1500);
   }
 
+  async function saveRename() {
+    const next = draftName.trim();
+    if (next && next !== endpoint.source) {
+      await api.renameEndpoint(projectSlug, endpoint.slug, next);
+      onRenamed();
+    }
+    setRenaming(false);
+  }
+
   return (
     <div className="space-y-3 px-5 py-5">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">{endpoint.source}</div>
+          {renaming ? (
+            <Input
+              autoFocus
+              value={draftName}
+              onChange={(event) => setDraftName(event.target.value)}
+              onBlur={saveRename}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void saveRename();
+                if (event.key === "Escape") setRenaming(false);
+              }}
+              className="h-8"
+            />
+          ) : (
+            <div className="truncate font-medium">{endpoint.source}</div>
+          )}
           <div className="truncate font-mono text-xs text-muted-foreground">
             /{endpoint.slug}
           </div>
         </div>
         <KindBadge kind={endpoint.kind} />
+        {!renaming && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => {
+              setDraftName(endpoint.source);
+              setRenaming(true);
+            }}
+            aria-label={`Rename ${endpoint.source} endpoint`}
+          >
+            <Pencil />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon-xs"

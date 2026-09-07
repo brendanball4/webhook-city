@@ -274,6 +274,16 @@ export const api = {
   deleteProject: (slug: string) =>
     http<void>(`/api/projects/${slug}`, { method: "DELETE" }),
 
+  listEndpoints: (projectSlug: string) =>
+    http<Endpoint[]>(`/api/projects/${projectSlug}/endpoints`),
+
+  /** Changes an endpoint's label. The ingest URL (slug) is unaffected. */
+  renameEndpoint: (projectSlug: string, endpointSlug: string, source: string) =>
+    http<Endpoint>(`/api/projects/${projectSlug}/endpoints/${endpointSlug}`, {
+      method: "PUT",
+      body: JSON.stringify({ source }),
+    }),
+
   deleteEndpoint: (projectSlug: string, endpointSlug: string) =>
     http<void>(
       `/api/projects/${projectSlug}/endpoints/${endpointSlug}`,

@@ -3,34 +3,41 @@ using WebhookCity.Api.Models;
 
 namespace WebhookCity.Api.Services;
 
-public static class SlackMessageFormatter
+public static class EventNotificationBuilder
 {
-    public static string Format(Project project, Event webhookEvent)
+    public static EventNotification Build(Project project, Event webhookEvent)
     {
-        var prefix = $"*{Escape(project.Name)}*";
-        var root = webhookEvent.Body?.RootElement;
-        if (root is not { ValueKind: JsonValueKind.Object })
-            return $"{prefix} — Webhook received from `{Escape(webhookEvent.Source)}`";
-
-        if (TryNested(root.Value, out var dataType, "data", "type"))
-            return $"{prefix} — {FormatAppStoreConnect(dataType, root.Value)}";
-
-        if (TryNested(root.Value, out var eventType, "metadata", "attributes", "eventType"))
-            return $"{prefix} — {FormatXcodeCloud(eventType, root.Value)}";
-
-        return $"{prefix} — `{Escape(webhookEvent.Source)}` webhook received";
+        var summary = Summarize(webhookEvent);
+        return new EventNotification(
+            project.Name, webhookEvent.Source, webhookEvent.Status, summary);
     }
 
-    public static string TestMessage(Project project) =>
-        $"*{Escape(project.Name)}* — Webhook City connected successfully";
+    public static EventNotification TestMessage(Project project) =>
+        new(project.Name, "webhook-city", "success",
+            "Webhook City connected successfully");
+
+    private static string Summarize(Event webhookEvent)
+    {
+        var root = webhookEvent.Body?.RootElement;
+        if (root is not { ValueKind: JsonValueKind.Object })
+            return $"Webhook received from `{webhookEvent.Source}`";
+
+        if (TryNested(root.Value, out var dataType, "data", "type"))
+            return FormatAppStoreConnect(dataType, root.Value);
+
+        if (TryNested(root.Value, out var eventType, "metadata", "attributes", "eventType"))
+            return FormatXcodeCloud(eventType, root.Value);
+
+        return $"`{webhookEvent.Source}` webhook received";
+    }
 
     private static string FormatAppStoreConnect(string dataType, JsonElement root)
     {
         var state = Attribute(root, "newState") ?? Attribute(root, "newValue");
         var oldState = Attribute(root, "oldState") ?? Attribute(root, "oldValue");
         var transition = oldState is not null && state is not null
-            ? $" (`{Escape(oldState)}` → `{Escape(state)}`)"
-            : state is not null ? $" (`{Escape(state)}`)" : string.Empty;
+            ? $" (`{oldState}` → `{state}`)"
+            : state is not null ? $" (`{state}`)" : string.Empty;
 
         return dataType switch
         {
@@ -58,7 +65,7 @@ public static class SlackMessageFormatter
                 $"Background asset processing failed{transition}",
             "backgroundAssetVersionStateUpdated" =>
                 $"Background asset state changed{transition}",
-            _ => $"Apple event `{Escape(dataType)}` received{transition}",
+            _ => $"Apple event `{dataType}` received{transition}",
         };
     }
 
@@ -73,8 +80,8 @@ public static class SlackMessageFormatter
             "BUILD_COMPLETED" when status is "FAILED" or "ERRORED" =>
                 $"Xcode Cloud build {status.ToLowerInvariant()}",
             "BUILD_COMPLETED" when status == "CANCELED" => "Xcode Cloud build canceled",
-            "BUILD_COMPLETED" => $"Xcode Cloud build completed (`{Escape(status ?? "unknown")}`)",
-            _ => $"Xcode Cloud event `{Escape(eventType)}` received",
+            "BUILD_COMPLETED" => $"Xcode Cloud build completed (`{status ?? "unknown"}`)",
+            _ => $"Xcode Cloud event `{eventType}` received",
         };
     }
 
@@ -102,8 +109,4 @@ public static class SlackMessageFormatter
         return value.Length > 0;
     }
 
-    private static string Escape(string value) => value
-        .Replace("&", "&amp;", StringComparison.Ordinal)
-        .Replace("<", "&lt;", StringComparison.Ordinal)
-        .Replace(">", "&gt;", StringComparison.Ordinal);
 }

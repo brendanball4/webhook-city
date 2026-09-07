@@ -15,7 +15,9 @@ public class WebhookCityDbContext : DbContext
     public DbSet<Endpoint> Endpoints => Set<Endpoint>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<Group> Groups => Set<Group>();
-    public DbSet<SlackDelivery> SlackDeliveries => Set<SlackDelivery>();
+    public DbSet<IntegrationDelivery> IntegrationDeliveries => Set<IntegrationDelivery>();
+    public DbSet<Integration> Integrations => Set<Integration>();
+    public DbSet<IntegrationEndpoint> IntegrationEndpoints => Set<IntegrationEndpoint>();
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
@@ -161,16 +163,54 @@ public class WebhookCityDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<SlackDelivery>(entity =>
+        modelBuilder.Entity<Integration>(entity =>
+        {
+            entity.HasKey(i => i.Id);
+            entity.HasIndex(i => i.ProjectId);
+
+            entity.Property(i => i.Provider).HasConversion<string>().IsRequired();
+            entity.Property(i => i.Name).IsRequired();
+            entity.Property(i => i.WebhookUrl).IsRequired();
+
+            entity.HasOne(i => i.Project)
+                .WithMany(p => p.Integrations)
+                .HasForeignKey(i => i.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<IntegrationEndpoint>(entity =>
+        {
+            entity.HasKey(ie => new { ie.IntegrationId, ie.EndpointId });
+
+            entity.HasOne(ie => ie.Integration)
+                .WithMany(i => i.Endpoints)
+                .HasForeignKey(ie => ie.IntegrationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Removing an endpoint drops its routing rows, leaving the
+            // integration in place (which then means "all endpoints").
+            entity.HasOne(ie => ie.Endpoint)
+                .WithMany()
+                .HasForeignKey(ie => ie.EndpointId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<IntegrationDelivery>(entity =>
         {
             entity.HasKey(d => d.Id);
-            entity.HasIndex(d => d.EventId).IsUnique();
+            // The worker polls pending rows in due order.
             entity.HasIndex(d => new { d.Status, d.NextAttemptAt });
+
             entity.Property(d => d.Status).IsRequired();
 
             entity.HasOne(d => d.Event)
-                .WithOne()
-                .HasForeignKey<SlackDelivery>(d => d.EventId)
+                .WithMany()
+                .HasForeignKey(d => d.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Integration)
+                .WithMany()
+                .HasForeignKey(d => d.IntegrationId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

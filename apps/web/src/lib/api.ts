@@ -109,9 +109,16 @@ export interface WebhookEvent {
   body: Record<string, unknown> | null;
 }
 
-export interface SlackIntegration {
-  configured: boolean;
+export type IntegrationProvider = "Slack" | "Discord";
+
+export interface Integration {
+  id: string;
+  provider: IntegrationProvider;
+  name: string;
   enabled: boolean;
+  createdAt: string;
+  /** Empty means the integration listens to every endpoint. */
+  endpointIds: string[];
 }
 
 /** Endpoints that must not trigger the refresh-and-retry loop. */
@@ -273,25 +280,45 @@ export const api = {
       { method: "DELETE" },
     ),
 
-  getSlackIntegration: (projectSlug: string) =>
-    http<SlackIntegration>(`/api/projects/${projectSlug}/integrations/slack`),
+  listIntegrations: (projectSlug: string) =>
+    http<Integration[]>(`/api/projects/${projectSlug}/integrations`),
 
-  configureSlack: (projectSlug: string, webhookUrl: string) =>
-    http<SlackIntegration>(`/api/projects/${projectSlug}/integrations/slack`, {
-      method: "PUT",
-      body: JSON.stringify({ webhookUrl }),
+  createIntegration: (
+    projectSlug: string,
+    provider: IntegrationProvider,
+    name: string,
+    webhookUrl: string,
+    endpointIds: string[],
+  ) =>
+    http<Integration>(`/api/projects/${projectSlug}/integrations`, {
+      method: "POST",
+      body: JSON.stringify({ provider, name, webhookUrl, endpointIds }),
     }),
 
-  testSlack: (projectSlug: string) =>
-    http<{ delivered: boolean }>(
-      `/api/projects/${projectSlug}/integrations/slack/test`,
-      { method: "POST" },
-    ),
+  updateIntegration: (
+    projectSlug: string,
+    id: string,
+    name: string,
+    enabled: boolean,
+    endpointIds: string[],
+    // Omit to keep the stored webhook URL.
+    webhookUrl?: string,
+  ) =>
+    http<Integration>(`/api/projects/${projectSlug}/integrations/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name, enabled, endpointIds, webhookUrl }),
+    }),
 
-  deleteSlackIntegration: (projectSlug: string) =>
-    http<void>(`/api/projects/${projectSlug}/integrations/slack`, {
+  deleteIntegration: (projectSlug: string, id: string) =>
+    http<void>(`/api/projects/${projectSlug}/integrations/${id}`, {
       method: "DELETE",
     }),
+
+  testIntegration: (projectSlug: string, id: string) =>
+    http<{ delivered: boolean }>(
+      `/api/projects/${projectSlug}/integrations/${id}/test`,
+      { method: "POST" },
+    ),
 
   getHealth: (projectSlug: string) =>
     http<EndpointHealth[]>(`/api/projects/${projectSlug}/health`),

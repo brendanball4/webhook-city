@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -27,8 +28,29 @@ export default function LoginPage() {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Null while unknown, so the link does not flash in and out on load.
+  const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
 
   const isRegister = mode === "register";
+
+  useEffect(() => {
+    let active = true;
+    api
+      .getAuthConfig()
+      .then((config) => {
+        if (!active) return;
+        setRegistrationOpen(config.registrationOpen);
+        // Never strand someone on a form the server will reject.
+        if (!config.registrationOpen) setMode("login");
+      })
+      .catch(() => {
+        // If the check fails, hide sign-up rather than offering a dead form.
+        if (active) setRegistrationOpen(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -140,19 +162,21 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground">
-          {isRegister ? "Already have an account?" : "No account yet?"}{" "}
-          <button
-            type="button"
-            className="font-medium text-primary underline-offset-4 hover:underline"
-            onClick={() => {
-              setMode(isRegister ? "login" : "register");
-              setError(null);
-            }}
-          >
-            {isRegister ? "Sign in" : "Create one"}
-          </button>
-        </p>
+        {registrationOpen && (
+          <p className="text-center text-sm text-muted-foreground">
+            {isRegister ? "Already have an account?" : "No account yet?"}{" "}
+            <button
+              type="button"
+              className="font-medium text-primary underline-offset-4 hover:underline"
+              onClick={() => {
+                setMode(isRegister ? "login" : "register");
+                setError(null);
+              }}
+            >
+              {isRegister ? "Sign in" : "Create one"}
+            </button>
+          </p>
+        )}
       </div>
     </main>
   );

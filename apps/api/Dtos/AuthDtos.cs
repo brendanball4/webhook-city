@@ -15,3 +15,6 @@ public record AuthResponse(string AccessToken, int ExpiresInSeconds, UserRespons
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
 public record UpdateProfileRequest(string? DisplayName);
+
+/// <summary>Public sign-in page capabilities.</summary>
+public record AuthConfigResponse(bool RegistrationOpen);

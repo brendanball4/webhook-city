@@ -156,7 +156,7 @@ export default function HomePage() {
                     id="project-name"
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    placeholder="HerdScan"
+                    placeholder="Acme Deploys"
                   />
                 </div>
                 <div className="space-y-2">

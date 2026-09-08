@@ -23,25 +23,53 @@ public class AuthController : ControllerBase
     private readonly IPasswordHasher<User> _hasher;
     private readonly ProjectAccess _access;
     private readonly JwtOptions _options;
+    private readonly IConfiguration _config;
 
     public AuthController(
         WebhookCityDbContext db,
         TokenService tokens,
         IPasswordHasher<User> hasher,
         ProjectAccess access,
-        IOptions<JwtOptions> options)
+        IOptions<JwtOptions> options,
+        IConfiguration config)
     {
         _db = db;
         _tokens = tokens;
         _hasher = hasher;
         _access = access;
         _options = options.Value;
+        _config = config;
     }
+
+    /// <summary>
+    /// Self-service signup is closed unless ALLOW_REGISTRATION is explicitly
+    /// enabled — an open instance on a public URL lets anyone create an account.
+    /// </summary>
+    private bool RegistrationEnabled =>
+        _config.GetValue("ALLOW_REGISTRATION", false);
+
+    /// <summary>
+    /// Whether the sign-up form should be offered. Anonymous so the sign-in page
+    /// can hide the link, but the register endpoint enforces this independently.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("config")]
+    public async Task<ActionResult<AuthConfigResponse>> Config() =>
+        Ok(new AuthConfigResponse(
+            RegistrationEnabled || !await _db.Users.AnyAsync()));
 
     [AllowAnonymous]
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {
+        var isFirstAccount = !await _db.Users.AnyAsync();
+
+        // The very first account is always allowed, otherwise a fresh deployment
+        // could never be bootstrapped with registration closed.
+        if (!RegistrationEnabled && !isFirstAccount)
+            return StatusCode(StatusCodes.Status403Forbidden,
+                "Registration is closed on this instance.");
+
         var email = Normalize(request.Email);
 
         if (!IsValidEmail(email))
@@ -51,8 +79,6 @@ public class AuthController : ControllerBase
             return BadRequest($"Password must be at least {MinPasswordLength} characters.");
         if (await _db.Users.AnyAsync(u => u.Email == email))
             return Conflict("An account with that email already exists.");
-
-        var isFirstAccount = !await _db.Users.AnyAsync();
 
         var user = new User
         {

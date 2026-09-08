@@ -248,6 +248,22 @@ export const api = {
       body: JSON.stringify({ groupId }),
     }),
 
+  /** Requires the current password; revokes all other sessions on success. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    http<AuthResponse>("/api/auth/password", {
+      method: "PUT",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
+  updateProfile: (displayName: string | null) =>
+    http<AuthUser>("/api/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify({ displayName }),
+    }),
+
+  /** Signs out every device, including this one. */
+  logoutAll: () => http<void>("/api/auth/logout-all", { method: "POST" }),
+
   listGroups: () => http<Group[]>("/api/groups"),
 
   createGroup: (name: string, color: string | null = null, parentId: string | null = null) =>

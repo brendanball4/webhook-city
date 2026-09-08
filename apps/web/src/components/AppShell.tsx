@@ -186,10 +186,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Image
                     src="/logo.png"
                     alt=""
-                    width={32}
-                    height={32}
+                    width={40}
+                    height={40}
                     priority
-                    className="size-8 shrink-0 object-contain"
+                    className="size-10 shrink-0 object-contain"
                   />
                   <span className="font-heading text-base font-semibold uppercase tracking-wider">
                     Webhook City
@@ -321,7 +321,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </SidebarFooter>
         </Sidebar>
 
-        <SidebarInset className="relative min-w-0">
+        <SidebarInset className="relative min-w-0 bg-transparent">
           <SidebarTrigger className="fixed left-3 top-3 z-40 border bg-background md:hidden" />
           {children}
         </SidebarInset>

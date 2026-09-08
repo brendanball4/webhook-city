@@ -55,10 +55,10 @@ export default function LoginPage() {
           <Image
             src="/logo.png"
             alt=""
-            width={56}
-            height={56}
+            width={96}
+            height={96}
             priority
-            className="mx-auto size-14 object-contain"
+            className="mx-auto size-24 object-contain"
           />
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
             Webhook City

@@ -22,6 +22,11 @@ interface AuthContextValue {
     displayName?: string,
   ) => Promise<void>;
   logout: () => Promise<void>;
+  /** Requires the current password. Ends every other session on success. */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateDisplayName: (displayName: string | null) => Promise<void>;
+  /** Ends every session, including this one, then returns to sign-in. */
+  logoutEverywhere: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -88,8 +93,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [router]);
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      // The server rotates every token, so adopt the fresh pair it returns
+      // or this tab would be signed out by its own password change.
+      const session = await api.changePassword(currentPassword, newPassword);
+      setAccessToken(session.accessToken);
+      setUser(session.user);
+    },
+    [],
+  );
+
+  const updateDisplayName = useCallback(async (displayName: string | null) => {
+    setUser(await api.updateProfile(displayName));
+  }, []);
+
+  const logoutEverywhere = useCallback(async () => {
+    try {
+      await api.logoutAll();
+    } finally {
+      setAccessToken(null);
+      setUser(null);
+      router.push("/login");
+    }
+  }, [router]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        logout,
+        changePassword,
+        updateDisplayName,
+        logoutEverywhere,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

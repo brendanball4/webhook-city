@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight, Folder, Gauge, RadioTower, Settings, UserRound, LogOut, MoreVertical, Users2 } from "lucide-react";
@@ -182,9 +183,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   tooltip="Webhook City"
                   render={<Link href="/dashboard" />}
                 >
-                  <span className="flex size-8 shrink-0 items-center justify-center bg-primary text-primary-foreground">
-                    <RadioTower className="size-4" />
-                  </span>
+                  <Image
+                    src="/logo.png"
+                    alt=""
+                    width={32}
+                    height={32}
+                    priority
+                    className="size-8 shrink-0 object-contain"
+                  />
                   <span className="font-heading text-base font-semibold uppercase tracking-wider">
                     Webhook City
                   </span>

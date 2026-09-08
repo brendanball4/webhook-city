@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -51,6 +52,14 @@ export default function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center px-5 py-12">
       <div className="w-full max-w-sm space-y-6">
         <div className="space-y-2 text-center">
+          <Image
+            src="/logo.png"
+            alt=""
+            width={56}
+            height={56}
+            priority
+            className="mx-auto size-14 object-contain"
+          />
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
             Webhook City
           </div>

@@ -25,6 +25,10 @@ services:
       # TLS is terminated by the tunnel/proxy in front of Kestrel.
       Jwt__CookieSecure: ${JWT_COOKIE_SECURE:-true}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      # Self-service sign-up. Closed by default: the instance is on a public URL,
+      # so anyone who finds it could otherwise create an account. The very first
+      # account is always permitted so a fresh deployment can be bootstrapped.
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
     ports:
       # Host port is configurable so it cannot collide with other apps on the Pi.
       - "${API_PORT:-5001}:8080"

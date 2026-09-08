@@ -147,6 +147,74 @@ public class AuthController : ControllerBase
         return Ok(new UserResponse(user.Id, user.Email, user.DisplayName));
     }
 
+    /// <summary>
+    /// Change the signed-in user's password. Requires the current password, and
+    /// revokes every existing session so a leaked refresh token cannot survive
+    /// the change — then re-issues one for this device so the user stays put.
+    /// </summary>
+    [Authorize]
+    [HttpPut("password")]
+    public async Task<ActionResult<AuthResponse>> ChangePassword(ChangePasswordRequest request)
+    {
+        var user = await CurrentUserAsync();
+        if (user is null)
+            return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(request.NewPassword) ||
+            request.NewPassword.Length < MinPasswordLength)
+            return BadRequest($"Password must be at least {MinPasswordLength} characters.");
+
+        var verified = _hasher.VerifyHashedPassword(
+            user, user.PasswordHash, request.CurrentPassword ?? string.Empty);
+        if (verified == PasswordVerificationResult.Failed)
+            return BadRequest("Current password is incorrect.");
+
+        user.PasswordHash = _hasher.HashPassword(user, request.NewPassword);
+        await _db.SaveChangesAsync();
+
+        // Everything issued under the old password is now dead.
+        await _tokens.RevokeAllForUserAsync(user.Id);
+
+        return await IssueAsync(user);
+    }
+
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<ActionResult<UserResponse>> UpdateProfile(UpdateProfileRequest request)
+    {
+        var user = await CurrentUserAsync();
+        if (user is null)
+            return Unauthorized();
+
+        var name = request.DisplayName?.Trim();
+        user.DisplayName = string.IsNullOrWhiteSpace(name) ? null : name;
+        await _db.SaveChangesAsync();
+
+        return Ok(new UserResponse(user.Id, user.Email, user.DisplayName));
+    }
+
+    /// <summary>Revokes every session, including this one.</summary>
+    [Authorize]
+    [HttpPost("logout-all")]
+    public async Task<IActionResult> LogoutEverywhere()
+    {
+        var userId = _access.CurrentUserId;
+        if (userId is null)
+            return Unauthorized();
+
+        await _tokens.RevokeAllForUserAsync(userId.Value);
+        ClearRefreshCookie();
+        return NoContent();
+    }
+
+    private async Task<User?> CurrentUserAsync()
+    {
+        var userId = _access.CurrentUserId;
+        return userId is null
+            ? null
+            : await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+    }
+
     private async Task<ActionResult<AuthResponse>> IssueAsync(User user)
     {
         var refresh = await _tokens.IssueRefreshTokenAsync(user.Id);

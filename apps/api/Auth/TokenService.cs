@@ -95,6 +95,18 @@ public class TokenService
         await _db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Revokes every outstanding refresh token for a user. Used on password
+    /// change and "sign out everywhere" so a stolen token cannot outlive either.
+    /// </summary>
+    public async Task RevokeAllForUserAsync(Guid userId)
+    {
+        await _db.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(
+                t => t.RevokedAt, DateTimeOffset.UtcNow));
+    }
+
     private static string GenerateRawToken()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);

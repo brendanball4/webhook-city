@@ -11,3 +11,7 @@ public record UserResponse(Guid Id, string Email, string? DisplayName);
 /// The refresh token is never in the body — it is set as an httpOnly cookie.
 /// </summary>
 public record AuthResponse(string AccessToken, int ExpiresInSeconds, UserResponse User);
+
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
+public record UpdateProfileRequest(string? DisplayName);

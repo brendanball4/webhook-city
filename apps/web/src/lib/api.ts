@@ -17,6 +17,11 @@ export interface AuthUser {
   displayName: string | null;
 }
 
+export interface AuthConfig {
+  /** False when self-service sign-up is closed on this instance. */
+  registrationOpen: boolean;
+}
+
 export interface AuthResponse {
   accessToken: string;
   expiresInSeconds: number;
@@ -192,6 +197,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, password, displayName }),
     }),
+
+  getAuthConfig: () => http<AuthConfig>("/api/auth/config"),
 
   login: (email: string, password: string) =>
     http<AuthResponse>("/api/auth/login", {
